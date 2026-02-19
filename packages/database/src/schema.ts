@@ -93,7 +93,7 @@ export const flashcardTags = sqliteTable("flashcard_tag", {
 export const quizQuestions = sqliteTable("quiz_question", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   deckId: integer("deck_id").notNull().references(() => decks.id, { onDelete: "cascade" }),
-  type: text("type", { enum: ["multiple_choice", "true_false", "free_text", "matching", "ordering", "open_ended"] }).notNull(),
+  type: text("type", { enum: ["multiple_choice", "true_false", "free_text", "matching", "ordering", "open_ended", "cloze", "multi_select", "code_eval"] }).notNull(),
   question: text("question").notNull(),
   explanation: text("explanation").default(""),
   correctAnswer: text("correct_answer"), // JSON for free_text, matching, ordering types

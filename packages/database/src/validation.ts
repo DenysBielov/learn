@@ -97,6 +97,50 @@ export const createOpenEndedSchema = baseQuestionSchema.extend({
   }),
 });
 
+// --- Cloze deletion ---
+export const clozeAnswerSchema = z.object({
+  text: z.string().min(1).max(MAX_QUESTION_TEXT)
+    .refine(val => /\{\{c(\d+)::([^}]+)\}\}/.test(val), "Must contain at least one cloze marker like {{c1::word}}"),
+});
+
+export const createClozeSchema = baseQuestionSchema.extend({
+  type: z.literal("cloze"),
+  correctAnswer: clozeAnswerSchema,
+});
+
+// --- Multi-select ---
+export const createMultiSelectSchema = baseQuestionSchema.extend({
+  type: z.literal("multi_select"),
+  options: z.array(questionOptionSchema).min(2).max(MAX_OPTIONS)
+    .refine(opts => opts.some(o => o.isCorrect), "At least one option must be correct")
+    .refine(opts => opts.some(o => !o.isCorrect), "At least one option must be incorrect"),
+});
+
+// --- Code evaluation ---
+const codeEvalAutoSchema = z.object({
+  code: z.string().min(1).max(51200),
+  language: z.string().max(50).default("plaintext"),
+  mode: z.literal("auto"),
+  accepted: z.array(z.string().max(1000)).min(1).max(10),
+});
+
+const codeEvalAiSchema = z.object({
+  code: z.string().min(1).max(51200),
+  language: z.string().max(50).default("plaintext"),
+  mode: z.literal("ai"),
+  referenceAnswer: z.string().min(1).max(MAX_QUESTION_TEXT),
+});
+
+export const codeEvalAnswerSchema = z.discriminatedUnion("mode", [
+  codeEvalAutoSchema,
+  codeEvalAiSchema,
+]);
+
+export const createCodeEvalSchema = baseQuestionSchema.extend({
+  type: z.literal("code_eval"),
+  correctAnswer: codeEvalAnswerSchema,
+});
+
 export const createQuizQuestionSchema = z.discriminatedUnion("type", [
   createMultipleChoiceSchema,
   createTrueFalseSchema,
@@ -104,6 +148,9 @@ export const createQuizQuestionSchema = z.discriminatedUnion("type", [
   createMatchingSchema,
   createOrderingSchema,
   createOpenEndedSchema,
+  createClozeSchema,
+  createMultiSelectSchema,
+  createCodeEvalSchema,
 ]);
 
 export type CreateQuizQuestion = z.infer<typeof createQuizQuestionSchema>;
@@ -116,6 +163,9 @@ const batchQuizQuestionSchema = z.discriminatedUnion("type", [
   createMatchingSchema.omit({ deckId: true }),
   createOrderingSchema.omit({ deckId: true }),
   createOpenEndedSchema.omit({ deckId: true }),
+  createClozeSchema.omit({ deckId: true }),
+  createMultiSelectSchema.omit({ deckId: true }),
+  createCodeEvalSchema.omit({ deckId: true }),
 ]);
 
 export const createQuizBatchSchema = z.object({
