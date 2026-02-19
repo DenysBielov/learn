@@ -68,13 +68,11 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
   }
 
   return (
-    <div className="py-8">
-      <QuizPlayer
-        deckId={0}
-        deckName={course.name}
-        questions={questions}
-        courseId={courseId}
-      />
-    </div>
+    <QuizPlayer
+      deckId={0}
+      deckName={course.name}
+      questions={questions}
+      courseId={courseId}
+    />
   );
 }

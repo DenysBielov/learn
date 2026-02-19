@@ -6,13 +6,13 @@ import { DefaultChatTransport } from "ai";
 import { ChatMessage } from "./chat/chat-message";
 import { ChatInput } from "./chat/chat-input";
 import { getSessionConversation } from "@/app/actions/chat";
+import { Lightbulb, GraduationCap } from "lucide-react";
 
 interface SessionChatProps {
   sessionId: number;
   currentFlashcardId?: number;
   currentQuestionId?: number;
   currentUserAnswer?: string;
-  chatMode: "explain" | "educate";
   onNewMessage?: () => void;
 }
 
@@ -21,9 +21,9 @@ export function SessionChat({
   currentFlashcardId,
   currentQuestionId,
   currentUserAnswer,
-  chatMode,
   onNewMessage,
 }: SessionChatProps) {
+  const [chatMode, setChatMode] = useState<"explain" | "educate">("explain");
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const lastMsgRef = useRef<HTMLDivElement>(null);
@@ -141,8 +141,34 @@ export function SessionChat({
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t p-3">
+      {/* Mode toggle + Input */}
+      <div className="border-t px-3 pt-2 pb-3 space-y-2">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setChatMode("explain")}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+              chatMode === "explain"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <Lightbulb className="h-3 w-3" />
+            Explain
+          </button>
+          <button
+            type="button"
+            onClick={() => setChatMode("educate")}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+              chatMode === "educate"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <GraduationCap className="h-3 w-3" />
+            Educate
+          </button>
+        </div>
         <ChatInput onSend={handleSend} disabled={isLoading} />
       </div>
     </div>

@@ -79,14 +79,12 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
   }
 
   return (
-    <div className="py-8">
-      <FlashcardStudy
-        deckId={0}
-        deckName={course.name}
-        cards={cards}
-        courseId={courseId}
-        subMode={subMode}
-      />
-    </div>
+    <FlashcardStudy
+      deckId={0}
+      deckName={course.name}
+      cards={cards}
+      courseId={courseId}
+      subMode={subMode}
+    />
   );
 }

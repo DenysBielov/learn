@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   MessageCircle,
   StickyNote,
-  GraduationCap,
-  Lightbulb,
   PanelRightClose,
 } from "lucide-react";
 import { SessionChat } from "./session-chat";
@@ -46,7 +44,6 @@ export function SessionPanel({
 }: SessionPanelProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<"chat" | "notes">("chat");
-  const [chatMode, setChatMode] = useState<"explain" | "educate">("explain");
   const [hasUnread, setHasUnread] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const unreadTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -114,38 +111,11 @@ export function SessionPanel({
       </div>
 
       <TabsContent value="chat" className="mt-0 flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
-          <button
-            type="button"
-            onClick={() => setChatMode("explain")}
-            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              chatMode === "explain"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            <Lightbulb className="h-3 w-3" />
-            Explain
-          </button>
-          <button
-            type="button"
-            onClick={() => setChatMode("educate")}
-            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              chatMode === "educate"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            <GraduationCap className="h-3 w-3" />
-            Educate
-          </button>
-        </div>
         <SessionChat
           sessionId={sessionId}
           currentFlashcardId={currentFlashcardId}
           currentQuestionId={currentQuestionId}
           currentUserAnswer={currentUserAnswer}
-          chatMode={chatMode}
           onNewMessage={handleNewMessage}
         />
       </TabsContent>
@@ -164,11 +134,8 @@ export function SessionPanel({
         style={{ width: collapsed ? 48 : SIDEBAR_WIDTH }}
       >
         <aside
-          className="flex h-full flex-col border-l bg-background transition-transform duration-200 ease-in-out"
-          style={{
-            width: SIDEBAR_WIDTH,
-            transform: collapsed ? `translateX(${SIDEBAR_WIDTH - 48}px)` : "translateX(0)",
-          }}
+          className="flex h-full flex-col border-l bg-background"
+          style={{ width: SIDEBAR_WIDTH }}
         >
           {collapsed ? (
             /* Collapsed rail — 48px visible portion of the aside */
