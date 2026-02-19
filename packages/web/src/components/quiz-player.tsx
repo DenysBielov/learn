@@ -34,7 +34,7 @@ interface QuestionOption {
 interface Question {
   id: number;
   deckId: number;
-  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "ordering" | "open_ended";
+  type: "multiple_choice" | "true_false" | "free_text" | "matching" | "ordering" | "open_ended" | "cloze" | "multi_select" | "code_eval";
   question: string;
   explanation: string | null;
   correctAnswer: string | null;
@@ -155,7 +155,8 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
     const percentage = results.length > 0 ? Math.round((correctCount / results.length) * 100) : 0;
 
     return (
-      <Card>
+      <div className="max-w-4xl mx-auto">
+        <Card>
         <CardHeader>
           <CardTitle>Quiz Complete!</CardTitle>
         </CardHeader>
@@ -195,30 +196,23 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
             </Button>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     );
   }
 
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-0">
+      <div className="flex-1 min-w-0 space-y-6 max-w-4xl">
       {/* Progress bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
             Question {currentIndex + 1} of {questions.length}
           </span>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">{deckName}</span>
-            {sessionId && (
-              <SessionPanel
-                sessionId={sessionId}
-                currentQuestionId={currentQuestion.id}
-                currentUserAnswer={result?.userAnswer}
-              />
-            )}
-          </div>
+          <span className="text-muted-foreground">{deckName}</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
           <div
@@ -333,7 +327,17 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
 
         </CardContent>
-      </Card>
+        </Card>
+      </div>
+
+      {/* Chat sidebar */}
+      {sessionId && (
+        <SessionPanel
+          sessionId={sessionId}
+          currentQuestionId={currentQuestion.id}
+          currentUserAnswer={result?.userAnswer}
+        />
+      )}
     </div>
   );
 }
