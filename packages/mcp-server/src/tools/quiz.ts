@@ -11,11 +11,11 @@ import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
     "create_quiz",
-    "Create multiple quiz questions in a deck. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).",
+    "Create multiple quiz questions in a deck. Supported types: multiple_choice, true_false, free_text, matching, ordering, cloze (Anki-style {{c1::word}} syntax), multi_select (multiple correct answers), code_eval (code snippet with auto or AI scoring). Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).",
     {
       deckId: z.number().int().positive(),
       questions: z.array(z.object({
-        type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering"]),
+        type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval"]),
         question: z.string().min(1).max(10240).describe("Question text. Supports Markdown and LaTeX math."),
         explanation: z.string().max(5120).optional().describe("Explanation shown after answering. Supports Markdown and LaTeX."),
         options: z.array(z.object({
@@ -77,7 +77,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
     "List quiz questions, filterable by deck, tag, or type",
     {
       deckId: z.number().int().positive().optional(),
-      type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering"]).optional(),
+      type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval"]).optional(),
       tagName: z.string().optional(),
     },
     async ({ deckId, type, tagName }) => {
