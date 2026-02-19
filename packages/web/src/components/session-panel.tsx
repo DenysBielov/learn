@@ -101,7 +101,7 @@ export function SessionPanel({
       onValueChange={(v) => setActiveTab(v as "chat" | "notes")}
       className="flex flex-1 flex-col overflow-hidden"
     >
-      <div className="border-b px-4">
+      <div className="px-4">
         <TabsList className="w-full">
           <TabsTrigger value="chat" className="flex-1 cursor-pointer">
             Chat
@@ -166,8 +166,8 @@ export function SessionPanel({
             </div>
           ) : (
             /* Expanded sidebar */
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b px-3 py-2">
+            <div className="flex flex-1 flex-col overflow-hidden max-h-[100dvh]">
+              <div className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm font-medium">AI Chat & Notes</span>
                 <Button
                   variant="ghost"
