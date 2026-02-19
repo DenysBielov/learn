@@ -60,7 +60,7 @@ export function CodeEval({ question, onAnswer, disabled }: CodeEvalProps) {
     if (!answer.trim() || data?.mode !== "auto") return;
 
     const normalizedAnswer = answer.trim().toLowerCase();
-    const acceptedAnswers = data.accepted.map((a) => a.toLowerCase());
+    const acceptedAnswers = data.accepted.map((a) => a.trim().toLowerCase());
     const isCorrect = acceptedAnswers.includes(normalizedAnswer);
     onAnswer(isCorrect, answer.trim());
   };

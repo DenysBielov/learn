@@ -243,6 +243,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           {/* Question type component */}
           {currentQuestion.type === "multiple_choice" && (
             <MultipleChoice
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -250,6 +251,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "true_false" && (
             <TrueFalse
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -257,6 +259,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "free_text" && (
             <FreeText
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -264,6 +267,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "matching" && (
             <Matching
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -271,6 +275,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "ordering" && (
             <Ordering
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -278,6 +283,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "open_ended" && (
             <OpenEnded
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -285,6 +291,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "cloze" && (
             <Cloze
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -292,6 +299,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "multi_select" && (
             <MultiSelect
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
@@ -299,6 +307,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "code_eval" && (
             <CodeEval
+              key={currentQuestion.id}
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
