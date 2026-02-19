@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { updateSessionNotes } from "@/app/actions/flashcards";
-import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, Save } from "lucide-react";
 
 interface SessionNotesProps {
   sessionId: number;
@@ -12,6 +13,7 @@ interface SessionNotesProps {
 export function SessionNotes({ sessionId, initialNotes = "" }: SessionNotesProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [dirty, setDirty] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedIndicatorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(initialNotes);
@@ -23,15 +25,21 @@ export function SessionNotes({ sessionId, initialNotes = "" }: SessionNotesProps
     setSaveStatus("saving");
     lastSavedRef.current = text;
     await updateSessionNotes(sessionId, text);
+    setDirty(false);
     setSaveStatus("saved");
     if (savedIndicatorRef.current) clearTimeout(savedIndicatorRef.current);
     savedIndicatorRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
   }, [sessionId]);
 
+  const handleManualSave = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    save(notes);
+  }, [notes, save]);
+
   // Debounced auto-save
   useEffect(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => save(notes), 500);
+    timeoutRef.current = setTimeout(() => save(notes), 1500);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
@@ -44,6 +52,21 @@ export function SessionNotes({ sessionId, initialNotes = "" }: SessionNotesProps
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Save on tab close via sendBeacon (unmount doesn't reliably fire on tab close)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const text = notesRef.current;
+      if (text !== lastSavedRef.current) {
+        navigator.sendBeacon(
+          "/api/session-notes",
+          JSON.stringify({ sessionId, notes: text })
+        );
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [sessionId]);
+
   // Cleanup saved indicator on unmount
   useEffect(() => {
     return () => {
@@ -55,20 +78,35 @@ export function SessionNotes({ sessionId, initialNotes = "" }: SessionNotesProps
     <div className="flex h-full flex-col p-3 gap-2">
       <textarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={(e) => {
+          setNotes(e.target.value);
+          setDirty(true);
+        }}
         placeholder="Jot down notes as you study..."
         className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
-      <div className="flex items-center justify-end h-5">
-        {saveStatus === "saving" && (
-          <span className="text-xs text-muted-foreground">Saving...</span>
-        )}
-        {saveStatus === "saved" && (
-          <span className="flex items-center gap-1 text-xs text-green-600">
-            <Check className="h-3 w-3" />
-            Saved
-          </span>
-        )}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs cursor-pointer"
+          onClick={handleManualSave}
+          disabled={!dirty || saveStatus === "saving"}
+        >
+          <Save className="mr-1 h-3 w-3" />
+          Save
+        </Button>
+        <div className="flex items-center h-5">
+          {saveStatus === "saving" && (
+            <span className="text-xs text-muted-foreground">Saving...</span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-xs text-green-600">
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

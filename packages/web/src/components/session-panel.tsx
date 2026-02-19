@@ -34,6 +34,7 @@ interface SessionPanelProps {
   currentFlashcardId?: number;
   currentQuestionId?: number;
   currentUserAnswer?: string;
+  initialNotes?: string;
 }
 
 export function SessionPanel({
@@ -41,6 +42,7 @@ export function SessionPanel({
   currentFlashcardId,
   currentQuestionId,
   currentUserAnswer,
+  initialNotes,
 }: SessionPanelProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<"chat" | "notes">("chat");
@@ -101,10 +103,10 @@ export function SessionPanel({
     >
       <div className="border-b px-4">
         <TabsList className="w-full">
-          <TabsTrigger value="chat" className="flex-1">
+          <TabsTrigger value="chat" className="flex-1 cursor-pointer">
             Chat
           </TabsTrigger>
-          <TabsTrigger value="notes" className="flex-1">
+          <TabsTrigger value="notes" className="flex-1 cursor-pointer">
             Notes
           </TabsTrigger>
         </TabsList>
@@ -121,7 +123,7 @@ export function SessionPanel({
       </TabsContent>
 
       <TabsContent value="notes" className="mt-0 flex flex-1 flex-col overflow-hidden">
-        <SessionNotes sessionId={sessionId} />
+        <SessionNotes sessionId={sessionId} initialNotes={initialNotes} />
       </TabsContent>
     </Tabs>
   );
@@ -143,7 +145,7 @@ export function SessionPanel({
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative h-9 w-9"
+                className="relative h-9 w-9 cursor-pointer"
                 onClick={() => expand("chat")}
                 title="Open chat"
               >
@@ -155,7 +157,7 @@ export function SessionPanel({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
+                className="h-9 w-9 cursor-pointer"
                 onClick={() => expand("notes")}
                 title="Open notes"
               >
@@ -170,7 +172,7 @@ export function SessionPanel({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 cursor-pointer"
                   onClick={() => setCollapsed(true)}
                   title="Collapse panel"
                 >
@@ -190,7 +192,7 @@ export function SessionPanel({
         <Button
           variant="default"
           size="icon"
-          className="fixed bottom-20 right-4 z-50 h-12 w-12 rounded-full shadow-lg md:hidden"
+          className="fixed bottom-20 right-4 z-50 h-12 w-12 rounded-full shadow-lg cursor-pointer md:hidden"
           onClick={() => setMobileOpen(true)}
           title="AI Chat & Notes"
         >

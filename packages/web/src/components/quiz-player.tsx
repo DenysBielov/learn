@@ -59,6 +59,7 @@ interface AnswerResult {
 export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayerProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessionNotes, setSessionNotes] = useState<string>("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [result, setResult] = useState<AnswerResult | null>(null);
@@ -74,6 +75,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
         ? await startCourseStudySession(courseId, "quiz", "default")
         : await startStudySession(deckId, "quiz");
       setSessionId(session.id);
+      setSessionNotes(session.notes ?? "");
     };
     initSession();
   }, [deckId, courseId]);
@@ -207,8 +209,8 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="flex gap-0 min-h-[calc(100dvh-6rem)] md:min-h-[calc(100dvh-3rem)]">
-      <div className="flex-1 min-w-0 flex justify-center py-8">
+    <div className="flex gap-0 min-h-[calc(100dvh-4rem)] md:min-h-dvh">
+      <div className="flex-1 min-w-0 flex justify-center px-4 py-8">
       <div className="w-full max-w-3xl space-y-6">
       {/* Progress bar */}
       <div className="space-y-2">
@@ -371,6 +373,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           sessionId={sessionId}
           currentQuestionId={currentQuestion.id}
           currentUserAnswer={result?.userAnswer}
+          initialNotes={sessionNotes}
         />
       )}
     </div>

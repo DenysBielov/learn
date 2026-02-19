@@ -45,10 +45,8 @@ export default async function RootLayout({
           <div className="flex min-h-screen">
             {user && <Nav />}
             {user && <ServiceWorkerRegister />}
-            <main className={`flex-1 ${user ? "md:pl-64 pb-16 md:pb-0" : ""}`}>
-              <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl">
-                {children}
-              </div>
+            <main className={`flex-1 ${user ? "md:pl-16 lg:pl-64 pb-16 md:pb-0" : ""}`}>
+              {children}
             </main>
           </div>
         </ThemeProvider>

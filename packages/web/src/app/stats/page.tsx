@@ -6,7 +6,7 @@ export default async function StatsPage() {
   const stats = await getStudyStats();
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Statistics</h1>
         <p className="text-muted-foreground mt-2">

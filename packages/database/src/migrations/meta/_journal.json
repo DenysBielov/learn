@@ -71,6 +71,13 @@
       "when": 1771488031806,
       "tag": "0009_curly_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1771574400000,
+      "tag": "0010_fix_chat_message_fk",
+      "breakpoints": true
     }
   ]
 }

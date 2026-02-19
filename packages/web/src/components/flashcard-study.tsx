@@ -49,6 +49,7 @@ export function FlashcardStudy({
 }: FlashcardStudyProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [sessionNotes, setSessionNotes] = useState<string>("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +81,7 @@ export function FlashcardStudy({
         ? await startCourseStudySession(courseId, "flashcard", subMode ?? "review_due")
         : await startStudySession(deckId, "flashcard");
       setSessionId(session.id);
+      setSessionNotes(session.notes ?? "");
     };
     initSession();
   }, [deckId, courseId, subMode]);
@@ -208,7 +210,7 @@ export function FlashcardStudy({
     const easyCount = results.filter((r) => r.rating === "easy").length;
 
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pt-6">
         <Card>
           <CardHeader>
             <CardTitle>Study Session Complete!</CardTitle>
@@ -264,8 +266,8 @@ export function FlashcardStudy({
   const currentCard = cards[currentIndex];
 
   return (
-    <div className="flex gap-0 min-h-[calc(100dvh-6rem)] md:min-h-[calc(100dvh-3rem)]">
-      <div className="flex-1 min-w-0 flex justify-center py-8">
+    <div className="flex gap-0 min-h-[calc(100dvh-4rem)] md:min-h-dvh">
+      <div className="flex-1 min-w-0 flex justify-center px-4 py-8">
       <div className="w-full max-w-3xl space-y-6">
       {/* Progress bar */}
       <div className="space-y-2">
@@ -430,6 +432,7 @@ export function FlashcardStudy({
         <SessionPanel
           sessionId={sessionId}
           currentFlashcardId={currentCard.id}
+          initialNotes={sessionNotes}
         />
       )}
     </div>

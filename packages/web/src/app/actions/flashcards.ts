@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
 import { flashcards, flashcardResults, studySessions, decks, courses } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { calculateSm2, type Sm2Rating } from "@/lib/sm2";
 import { requireAuth } from "@/lib/auth";
@@ -136,6 +136,19 @@ export async function startStudySession(deckId: number, mode: "flashcard" | "qui
     .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
   if (!deck) throw new Error("Deck not found");
 
+  // Resume an incomplete session if one exists
+  const existing = db.select().from(studySessions)
+    .where(and(
+      eq(studySessions.deckId, deckId),
+      eq(studySessions.userId, userId),
+      eq(studySessions.mode, mode),
+      isNull(studySessions.completedAt),
+    ))
+    .orderBy(studySessions.startedAt)
+    .limit(1)
+    .get();
+  if (existing) return existing;
+
   const [session] = writeTransaction(db, () =>
     db.insert(studySessions).values({ deckId, mode, userId }).returning().all()
   );
@@ -163,6 +176,20 @@ export async function startCourseStudySession(
   const course = db.select({ id: courses.id }).from(courses)
     .where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
   if (!course) throw new Error("Course not found");
+
+  // Resume an incomplete session if one exists
+  const existing = db.select().from(studySessions)
+    .where(and(
+      eq(studySessions.courseId, courseId),
+      eq(studySessions.userId, userId),
+      eq(studySessions.mode, mode),
+      eq(studySessions.subMode, subMode),
+      isNull(studySessions.completedAt),
+    ))
+    .orderBy(studySessions.startedAt)
+    .limit(1)
+    .get();
+  if (existing) return existing;
 
   const [session] = writeTransaction(db, () =>
     db.insert(studySessions).values({

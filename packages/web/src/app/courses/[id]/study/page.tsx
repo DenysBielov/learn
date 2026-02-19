@@ -39,7 +39,7 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
   // No mode selected — show picker
   if (!mode || !["review_due", "sequential", "random", "weakest_first"].includes(mode)) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
         <Breadcrumbs items={[...breadcrumbs, { id: 0, name: "Study" }]} />
         <h1 className="text-3xl font-bold tracking-tight">Study {course.name}</h1>
         <p className="text-muted-foreground">Choose a study mode:</p>

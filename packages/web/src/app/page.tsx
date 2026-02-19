@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   const isEmpty = allCourses.length === 0 && ungroupedDecks.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
         <div className="flex gap-2">

@@ -46,7 +46,7 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
 
   if (!mode || !["all", "new", "revision"].includes(mode)) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Quiz: {deck.name}</h1>
         <p className="text-muted-foreground">Choose a quiz mode:</p>
         <DeckQuizModePicker deckId={deckId} />

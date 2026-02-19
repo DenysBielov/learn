@@ -29,7 +29,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
   if (!course) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
       <Breadcrumbs items={breadcrumbs} />
 
       <div>

@@ -36,17 +36,19 @@ export function Nav() {
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r md:bg-background">
+      {/* Desktop Sidebar — icons only on md, full on lg */}
+      <aside className="hidden md:flex md:w-16 lg:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r md:bg-background">
         <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
           <div className="flex items-center justify-between flex-shrink-0 px-4">
-            <h1 className="text-xl font-bold">Flashcards</h1>
+            <h1 className="text-xl font-bold hidden lg:block">Flashcards</h1>
             <div className="flex items-center gap-1">
               <NotificationToggle />
-              <ThemeToggle />
+              <div className="hidden lg:block">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
-          <nav className="mt-8 flex-1 px-3 space-y-1">
+          <nav className="mt-8 flex-1 px-2 lg:px-3 space-y-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
@@ -54,26 +56,28 @@ export function Nav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
                   className={cn(
-                    "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    "group flex items-center justify-center lg:justify-start px-3 py-2 text-sm font-medium rounded-md transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                  {item.label}
+                  <Icon className="h-5 w-5 flex-shrink-0 lg:mr-3" />
+                  <span className="hidden lg:inline">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
-          <div className="px-3 pb-4">
+          <div className="px-2 lg:px-3 pb-4">
             <button
               onClick={handleLogout}
-              className="group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full"
+              title="Sign out"
+              className="group flex items-center justify-center lg:justify-start px-3 py-2 text-sm font-medium rounded-md transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full"
             >
-              <LogOut className="mr-3 h-5 w-5 flex-shrink-0" />
-              Sign out
+              <LogOut className="h-5 w-5 flex-shrink-0 lg:mr-3" />
+              <span className="hidden lg:inline">Sign out</span>
             </button>
           </div>
         </div>
