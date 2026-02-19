@@ -20,6 +20,9 @@ import { Ordering } from "@/components/question-types/ordering";
 import { SessionPanel } from "@/components/session-panel";
 import { FlagButtons } from "@/components/flag-buttons";
 import { OpenEnded } from "@/components/question-types/open-ended";
+import { Cloze } from "@/components/question-types/cloze";
+import { MultiSelect } from "@/components/question-types/multi-select";
+import { CodeEval } from "@/components/question-types/code-eval";
 import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen } from "lucide-react";
 import { CompletionNotes } from "@/components/completion-notes";
@@ -275,6 +278,27 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           )}
           {currentQuestion.type === "open_ended" && (
             <OpenEnded
+              question={currentQuestion}
+              onAnswer={handleAnswer}
+              disabled={answered}
+            />
+          )}
+          {currentQuestion.type === "cloze" && (
+            <Cloze
+              question={currentQuestion}
+              onAnswer={handleAnswer}
+              disabled={answered}
+            />
+          )}
+          {currentQuestion.type === "multi_select" && (
+            <MultiSelect
+              question={currentQuestion}
+              onAnswer={handleAnswer}
+              disabled={answered}
+            />
+          )}
+          {currentQuestion.type === "code_eval" && (
+            <CodeEval
               question={currentQuestion}
               onAnswer={handleAnswer}
               disabled={answered}
