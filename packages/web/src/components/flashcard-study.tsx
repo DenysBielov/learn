@@ -208,61 +208,64 @@ export function FlashcardStudy({
     const easyCount = results.filter((r) => r.rating === "easy").length;
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Study Session Complete!</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <p className="text-muted-foreground mb-4">
-              You reviewed {cards.length} card{cards.length !== 1 ? "s" : ""} in {deckName}.
-            </p>
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Study Session Complete!</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <p className="text-muted-foreground mb-4">
+                You reviewed {cards.length} card{cards.length !== 1 ? "s" : ""} in {deckName}.
+              </p>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-              {skippedCount > 0 && (
-                <div className="rounded-lg border bg-amber-500/10 p-4 text-center">
-                  <div className="text-2xl font-bold">{skippedCount}</div>
-                  <div className="text-sm text-muted-foreground">Skipped</div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                {skippedCount > 0 && (
+                  <div className="rounded-lg border bg-amber-500/10 p-4 text-center">
+                    <div className="text-2xl font-bold">{skippedCount}</div>
+                    <div className="text-sm text-muted-foreground">Skipped</div>
+                  </div>
+                )}
+                <div className="rounded-lg border bg-destructive/10 p-4 text-center">
+                  <div className="text-2xl font-bold">{againCount}</div>
+                  <div className="text-sm text-muted-foreground">Again</div>
                 </div>
-              )}
-              <div className="rounded-lg border bg-destructive/10 p-4 text-center">
-                <div className="text-2xl font-bold">{againCount}</div>
-                <div className="text-sm text-muted-foreground">Again</div>
-              </div>
-              <div className="rounded-lg border bg-orange-500/10 p-4 text-center">
-                <div className="text-2xl font-bold">{hardCount}</div>
-                <div className="text-sm text-muted-foreground">Hard</div>
-              </div>
-              <div className="rounded-lg border bg-blue-500/10 p-4 text-center">
-                <div className="text-2xl font-bold">{goodCount}</div>
-                <div className="text-sm text-muted-foreground">Good</div>
-              </div>
-              <div className="rounded-lg border bg-green-500/10 p-4 text-center">
-                <div className="text-2xl font-bold">{easyCount}</div>
-                <div className="text-sm text-muted-foreground">Easy</div>
+                <div className="rounded-lg border bg-orange-500/10 p-4 text-center">
+                  <div className="text-2xl font-bold">{hardCount}</div>
+                  <div className="text-sm text-muted-foreground">Hard</div>
+                </div>
+                <div className="rounded-lg border bg-blue-500/10 p-4 text-center">
+                  <div className="text-2xl font-bold">{goodCount}</div>
+                  <div className="text-sm text-muted-foreground">Good</div>
+                </div>
+                <div className="rounded-lg border bg-green-500/10 p-4 text-center">
+                  <div className="text-2xl font-bold">{easyCount}</div>
+                  <div className="text-sm text-muted-foreground">Easy</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {sessionId && <CompletionNotes sessionId={sessionId} />}
+            {sessionId && <CompletionNotes sessionId={sessionId} />}
 
-          <div className="flex gap-3">
-            <Button onClick={() => router.push(courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
-              {courseId ? "Back to Course" : "Back to Deck"}
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/")}>
-              Back to Home
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex gap-3">
+              <Button onClick={() => router.push(courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
+                {courseId ? "Back to Course" : "Back to Deck"}
+              </Button>
+              <Button variant="outline" onClick={() => router.push("/")}>
+                Back to Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   const currentCard = cards[currentIndex];
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-0">
+      <div className="flex-1 min-w-0 space-y-6 max-w-4xl">
       {/* Progress bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
@@ -282,17 +285,9 @@ export function FlashcardStudy({
               Card {currentIndex + 1} of {cards.length}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">
-              {deckName}
-            </span>
-            {sessionId && (
-              <SessionPanel
-                sessionId={sessionId}
-                currentFlashcardId={currentCard.id}
-              />
-            )}
-          </div>
+          <span className="text-muted-foreground">
+            {deckName}
+          </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
           <div
@@ -426,6 +421,15 @@ export function FlashcardStudy({
           : "Rate your recall: 1 (Again) | 2 (Hard) | 3 (Good) | 4 (Easy)"}
       </div>
 
+      </div>
+
+      {/* Chat sidebar */}
+      {sessionId && (
+        <SessionPanel
+          sessionId={sessionId}
+          currentFlashcardId={currentCard.id}
+        />
+      )}
     </div>
   );
 }
