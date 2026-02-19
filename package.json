@@ -1,0 +1,15 @@
+{
+  "name": "flashcards",
+  "private": true,
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "bcrypt", "esbuild", "sharp"]
+  },
+  "scripts": {
+    "dev": "pnpm --filter @flashcards/web dev",
+    "build": "pnpm --filter @flashcards/web build",
+    "migrate": "pnpm --filter @flashcards/database migrate",
+    "generate": "pnpm --filter @flashcards/database generate",
+    "add-user": "pnpm --filter @flashcards/database add-user"
+  }
+}

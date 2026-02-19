@@ -1,0 +1,30 @@
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+
+# Database
+data/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Internal docs and prototypes
+docs/
+prototypes/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

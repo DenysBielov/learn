@@ -1,0 +1,71 @@
+FROM node:22-slim AS builder
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+
+# Install build tools for native addons (better-sqlite3, bcrypt)
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/mcp-server/package.json packages/mcp-server/
+COPY packages/database/package.json packages/database/
+COPY packages/shared/package.json packages/shared/
+RUN pnpm install --frozen-lockfile
+
+# Copy source for both packages and migration script
+COPY packages/database/ packages/database/
+COPY packages/shared/ packages/shared/
+COPY packages/mcp-server/ packages/mcp-server/
+COPY scripts/docker-migrate.mjs scripts/docker-migrate.mjs
+
+# Build MCP server (compiles TypeScript to dist/)
+RUN pnpm --filter @flashcards/mcp-server build
+
+# Prepare a self-contained migration directory with npm (flat node_modules, no symlinks)
+RUN mkdir -p /migrate && \
+    cp scripts/docker-migrate.mjs /migrate/migrate.mjs && \
+    cp -r packages/database/src/migrations /migrate/migrations && \
+    cd /migrate && \
+    echo '{"type":"module"}' > package.json && \
+    npm install --no-package-lock better-sqlite3@11 drizzle-orm@0.38
+
+# --- Runner ---
+FROM node:22-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV DATABASE_PATH=/app/data/flashcards.db
+ENV PORT=3001
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 mcpuser
+
+# Copy entire pnpm workspace structure (preserves symlinks between node_modules and .pnpm store)
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/node_modules/ ./node_modules/
+
+# Copy database package (source .ts files needed at runtime via workspace symlink)
+COPY --from=builder /app/packages/database/ ./packages/database/
+
+# Copy shared package (source .ts files resolved via workspace symlink from MCP node_modules)
+COPY --from=builder /app/packages/shared/ ./packages/shared/
+
+# Copy MCP server compiled output, package.json, and node_modules (with pnpm symlinks)
+COPY --from=builder /app/packages/mcp-server/dist/ ./packages/mcp-server/dist/
+COPY --from=builder /app/packages/mcp-server/package.json ./packages/mcp-server/package.json
+COPY --from=builder /app/packages/mcp-server/node_modules/ ./packages/mcp-server/node_modules/
+
+# Copy self-contained migration directory
+COPY --from=builder /migrate ./migrate
+
+# Ensure data directory exists and is owned by mcpuser
+RUN mkdir -p /app/data /app/data/images && chown -R mcpuser:nodejs /app/data
+
+USER mcpuser
+
+EXPOSE 3001
+
+# Run migrations then start MCP server
+# cd into mcp-server so Node resolves tsx and @flashcards/database from its local node_modules
+CMD ["sh", "-c", "node /app/migrate/migrate.mjs && cd /app/packages/mcp-server && node --import tsx/esm dist/index.js"]
