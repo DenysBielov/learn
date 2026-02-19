@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Drawer,
+  DrawerContent,
+} from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, GraduationCap, Lightbulb } from "lucide-react";
+import {
+  MessageCircle,
+  StickyNote,
+  GraduationCap,
+  Lightbulb,
+  PanelRightClose,
+} from "lucide-react";
 import { SessionChat } from "./session-chat";
 import { SessionNotes } from "./session-notes";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+const STORAGE_KEY = "session-panel-collapsed";
+const SIDEBAR_WIDTH = 320;
+
+function getInitialCollapsed(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
 
 interface SessionPanelProps {
   sessionId: number;
@@ -26,81 +44,201 @@ export function SessionPanel({
   currentQuestionId,
   currentUserAnswer,
 }: SessionPanelProps) {
-  const [open, setOpen] = useState(false);
-  // chatMode is per-message — switching modes mid-conversation is intentional.
-  // The mode applies to the next message sent; the AI handles context switches naturally.
+  const [collapsed, setCollapsed] = useState(true);
+  const [activeTab, setActiveTab] = useState<"chat" | "notes">("chat");
   const [chatMode, setChatMode] = useState<"explain" | "educate">("explain");
+  const [hasUnread, setHasUnread] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const unreadTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const isMobile = useIsMobile();
+
+  // Ref to track collapsed state for the stable handleNewMessage callback
+  const collapsedRef = useRef(collapsed);
+  useEffect(() => {
+    collapsedRef.current = collapsed;
+  }, [collapsed]);
+
+  // Hydrate collapsed state from localStorage after mount
+  useEffect(() => {
+    setCollapsed(getInitialCollapsed());
+  }, []);
+
+  // Persist collapsed state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch {
+      // ignore storage errors
+    }
+  }, [collapsed]);
+
+  const expand = useCallback((tab?: "chat" | "notes") => {
+    if (tab) setActiveTab(tab);
+    setCollapsed(false);
+    // Clear unread badge after a delay so user has time to see the content
+    if (tab === "chat" || !tab) {
+      unreadTimerRef.current = setTimeout(() => {
+        setHasUnread(false);
+      }, 1500);
+    }
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (unreadTimerRef.current) clearTimeout(unreadTimerRef.current);
+    };
+  }, []);
+
+  // Stable callback that reads collapsed via ref — safe to pass as prop.
+  // Only sets unread if sidebar is collapsed (avoids setting badge when chat is already visible).
+  const handleNewMessage = useCallback(() => {
+    if (collapsedRef.current) setHasUnread(true);
+  }, []);
+
+  const chatContent = (
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as "chat" | "notes")}
+      className="flex flex-1 flex-col overflow-hidden"
+    >
+      <div className="border-b px-4">
+        <TabsList className="w-full">
+          <TabsTrigger value="chat" className="flex-1">
+            Chat
+          </TabsTrigger>
+          <TabsTrigger value="notes" className="flex-1">
+            Notes
+          </TabsTrigger>
+        </TabsList>
+      </div>
+
+      <TabsContent value="chat" className="mt-0 flex flex-1 flex-col overflow-hidden">
+        <div className="flex items-center gap-2 border-b px-3 py-2">
+          <button
+            type="button"
+            onClick={() => setChatMode("explain")}
+            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              chatMode === "explain"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <Lightbulb className="h-3 w-3" />
+            Explain
+          </button>
+          <button
+            type="button"
+            onClick={() => setChatMode("educate")}
+            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              chatMode === "educate"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <GraduationCap className="h-3 w-3" />
+            Educate
+          </button>
+        </div>
+        <SessionChat
+          sessionId={sessionId}
+          currentFlashcardId={currentFlashcardId}
+          currentQuestionId={currentQuestionId}
+          currentUserAnswer={currentUserAnswer}
+          chatMode={chatMode}
+          onNewMessage={handleNewMessage}
+        />
+      </TabsContent>
+
+      <TabsContent value="notes" className="mt-0 flex flex-1 flex-col overflow-hidden">
+        <SessionNotes sessionId={sessionId} />
+      </TabsContent>
+    </Tabs>
+  );
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-8 w-8"
-        onClick={() => setOpen(true)}
-        title="AI Chat & Notes"
+      {/* Desktop sidebar — outer wrapper transitions width, inner aside transitions transform */}
+      <div
+        className="hidden md:block flex-shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+        style={{ width: collapsed ? 48 : SIDEBAR_WIDTH }}
       >
-        <MessageCircle className="h-4 w-4" />
-      </Button>
-
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="flex w-full flex-col p-0 sm:max-w-md">
-          <SheetHeader className="border-b px-4 py-3">
-            <SheetTitle className="text-base">AI Chat & Notes</SheetTitle>
-          </SheetHeader>
-
-          <Tabs defaultValue="chat" className="flex flex-1 flex-col overflow-hidden">
-            <div className="border-b px-4">
-              <TabsList className="w-full">
-                <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
-                <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
-              </TabsList>
+        <aside
+          className="flex h-full flex-col border-l bg-background transition-transform duration-200 ease-in-out"
+          style={{
+            width: SIDEBAR_WIDTH,
+            transform: collapsed ? `translateX(${SIDEBAR_WIDTH - 48}px)` : "translateX(0)",
+          }}
+        >
+          {collapsed ? (
+            /* Collapsed rail — 48px visible portion of the aside */
+            <div className="flex flex-col items-center gap-2 py-3" style={{ width: 48 }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-9 w-9"
+                onClick={() => expand("chat")}
+                title="Open chat"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {hasUnread && (
+                  <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-destructive" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => expand("notes")}
+                title="Open notes"
+              >
+                <StickyNote className="h-4 w-4" />
+              </Button>
             </div>
-
-            <TabsContent value="chat" className="mt-0 flex flex-1 flex-col overflow-hidden">
-              {/* Mode toggle */}
-              <div className="flex items-center gap-2 border-b px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setChatMode("explain")}
-                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    chatMode === "explain"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
+          ) : (
+            /* Expanded sidebar */
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b px-3 py-2">
+                <span className="text-sm font-medium">AI Chat & Notes</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setCollapsed(true)}
+                  title="Collapse panel"
                 >
-                  <Lightbulb className="h-3 w-3" />
-                  Explain
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChatMode("educate")}
-                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    chatMode === "educate"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  <GraduationCap className="h-3 w-3" />
-                  Educate
-                </button>
+                  <PanelRightClose className="h-4 w-4" />
+                </Button>
               </div>
+              {!isMobile && chatContent}
+            </div>
+          )}
+        </aside>
+      </div>
 
-              <SessionChat
-                sessionId={sessionId}
-                currentFlashcardId={currentFlashcardId}
-                currentQuestionId={currentQuestionId}
-                currentUserAnswer={currentUserAnswer}
-                chatMode={chatMode}
-              />
-            </TabsContent>
+      {/* Mobile: FAB trigger + vaul Drawer bottom sheet */}
+      {/* FAB at bottom-20 (80px) clears the 64px mobile nav bar */}
+      {/* Hidden when drawer is open */}
+      {!mobileOpen && (
+        <Button
+          variant="default"
+          size="icon"
+          className="fixed bottom-20 right-4 z-50 h-12 w-12 rounded-full shadow-lg md:hidden"
+          onClick={() => setMobileOpen(true)}
+          title="AI Chat & Notes"
+        >
+          <MessageCircle className="h-5 w-5" />
+          {hasUnread && (
+            <span className="absolute top-0 right-0 h-3 w-3 rounded-full bg-destructive" />
+          )}
+        </Button>
+      )}
 
-            <TabsContent value="notes" className="mt-0 flex flex-1 flex-col overflow-hidden">
-              <SessionNotes sessionId={sessionId} />
-            </TabsContent>
-          </Tabs>
-        </SheetContent>
-      </Sheet>
+      <Drawer open={mobileOpen} onOpenChange={setMobileOpen} snapPoints={[0.5, 0.95]} fadeFromIndex={0}>
+        <DrawerContent className="flex flex-col p-0">
+          {isMobile && mobileOpen && chatContent}
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
