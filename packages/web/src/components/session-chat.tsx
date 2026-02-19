@@ -13,6 +13,7 @@ interface SessionChatProps {
   currentQuestionId?: number;
   currentUserAnswer?: string;
   chatMode: "explain" | "educate";
+  onNewMessage?: () => void;
 }
 
 export function SessionChat({
@@ -21,6 +22,7 @@ export function SessionChat({
   currentQuestionId,
   currentUserAnswer,
   chatMode,
+  onNewMessage,
 }: SessionChatProps) {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -36,6 +38,11 @@ export function SessionChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
+    onFinish: ({ message }) => {
+      if (message.role === "assistant") {
+        onNewMessage?.();
+      }
+    },
   });
 
   const isLoading = status === "streaming" || status === "submitted";

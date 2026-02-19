@@ -37,6 +37,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       e.preventDefault();
       handleSubmit();
     }
+    if (e.key === "Escape") {
+      (e.currentTarget as HTMLElement).blur();
+    }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
