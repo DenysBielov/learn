@@ -166,7 +166,7 @@ export function SessionPanel({
             </div>
           ) : (
             /* Expanded sidebar */
-            <div className="flex flex-1 flex-col overflow-hidden max-h-[100dvh]">
+            <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm font-medium">AI Chat & Notes</span>
                 <Button

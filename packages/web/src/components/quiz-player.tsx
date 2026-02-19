@@ -209,8 +209,8 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   const currentQuestion = questions[currentIndex];
 
   return (
-    <div className="flex gap-0 min-h-[calc(100dvh-4rem)] md:min-h-dvh">
-      <div className="flex-1 min-w-0 flex justify-center px-4 py-8">
+    <div className="flex gap-0 h-[calc(100dvh-4rem)] md:h-dvh overflow-hidden">
+      <div className="flex-1 min-w-0 flex justify-center px-4 py-8 overflow-y-auto">
       <div className="w-full max-w-3xl space-y-6">
       {/* Progress bar */}
       <div className="space-y-2">
