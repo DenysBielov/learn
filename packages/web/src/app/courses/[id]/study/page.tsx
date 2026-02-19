@@ -79,7 +79,7 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8">
+    <div className="py-8">
       <FlashcardStudy
         deckId={0}
         deckName={course.name}

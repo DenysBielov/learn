@@ -96,7 +96,7 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
   const finalQuestions = mode === "revision" ? questions : shuffle(questions);
 
   return (
-    <div className="container mx-auto max-w-4xl py-8">
+    <div className="py-8">
       <QuizPlayer
         deckId={deckId}
         deckName={deck.name}

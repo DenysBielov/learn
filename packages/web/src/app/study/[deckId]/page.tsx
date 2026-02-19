@@ -68,7 +68,7 @@ export default async function StudyPage({
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8">
+    <div className="py-8">
       <FlashcardStudy deckId={deckId} deckName={deck.name} cards={cards} />
     </div>
   );

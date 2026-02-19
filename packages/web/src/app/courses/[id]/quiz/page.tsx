@@ -68,7 +68,7 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8">
+    <div className="py-8">
       <QuizPlayer
         deckId={0}
         deckName={course.name}
