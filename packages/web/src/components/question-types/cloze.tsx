@@ -104,10 +104,10 @@ function buildSegments(
         content: blank.answer,
       });
     } else {
-      // Future group — show as plain text (the answer)
+      // Future group — hide the answer with a placeholder
       segments.push({
         type: "revealed",
-        content: blank.answer,
+        content: "[...]",
       });
     }
 
@@ -165,15 +165,18 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
     []
   );
 
-  const handleCheckGroup = () => {
+  const computeCurrentGroupResults = (): Record<number, boolean> => {
     const newResults: Record<number, boolean> = { ...blankResults };
-
     for (const blank of activeBlanks) {
       const userVal = (userInputs[blank.index] ?? "").trim().toLowerCase();
       const correctVal = blank.answer.trim().toLowerCase();
       newResults[blank.index] = userVal === correctVal;
     }
+    return newResults;
+  };
 
+  const handleCheckGroup = () => {
+    const newResults = computeCurrentGroupResults();
     setBlankResults(newResults);
     setGroupChecked(true);
     setCheckedGroups((prev) => new Set([...prev, activeGroup]));
@@ -183,9 +186,10 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
     const nextIdx = currentGroupIdx + 1;
 
     if (nextIdx >= groups.length) {
-      // All groups done
+      // All groups done — recompute results inline to avoid stale state
+      const finalResults = computeCurrentGroupResults();
       setAllGroupsDone(true);
-      const allCorrect = blanks.every((b) => blankResults[b.index] === true);
+      const allCorrect = blanks.every((b) => finalResults[b.index] === true);
       const userAnswer = blanks
         .map(
           (b) =>
