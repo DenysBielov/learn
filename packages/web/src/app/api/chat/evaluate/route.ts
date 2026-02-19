@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId)))
     .get();
 
-  if (!question || question.type !== "open_ended") {
+  if (!question || (question.type !== "open_ended" && question.type !== "code_eval")) {
     return NextResponse.json(
       { error: "Open-ended question not found" },
       { status: 404 }
@@ -59,6 +59,19 @@ export async function POST(request: NextRequest) {
     referenceAnswer = parsed.referenceAnswer ?? "";
   } catch {
     referenceAnswer = question.correctAnswer ?? "";
+  }
+
+  let codeContext = "";
+  if (question.type === "code_eval") {
+    try {
+      const parsed = JSON.parse(question.correctAnswer ?? "{}");
+      codeContext = `\nCode being evaluated:\n\`\`\`${parsed.language || ""}\n${parsed.code}\n\`\`\`\n`;
+      if (parsed.referenceAnswer) {
+        referenceAnswer = parsed.referenceAnswer;
+      }
+    } catch {
+      // Use existing referenceAnswer
+    }
   }
 
   recordChatRequest(userId);
@@ -74,7 +87,7 @@ export async function POST(request: NextRequest) {
       }),
       prompt: `You are evaluating a student's answer to an open-ended question.
 
-Question: "${question.question}"
+Question: "${question.question}"${codeContext}
 Reference answer: "${referenceAnswer}"
 Grading criteria: "${question.explanation ?? "Compare against the reference answer"}"
 
