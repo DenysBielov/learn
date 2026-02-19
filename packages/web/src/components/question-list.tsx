@@ -19,6 +19,7 @@ interface QuizQuestion {
   question: string;
   type: string;
   options: QuestionOption[];
+  correctAnswer?: string | null;
 }
 
 interface QuestionListProps {
@@ -81,6 +82,26 @@ export function QuestionList({ questions, deckId }: QuestionListProps) {
                         <RichContent content={option.optionText} className="inline" />
                       </div>
                     ))}
+                  </div>
+                )}
+                {question.type === "cloze" && question.correctAnswer && (
+                  <div className="text-xs px-2 py-1 rounded bg-muted">
+                    {(() => {
+                      try {
+                        const data = JSON.parse(question.correctAnswer);
+                        return data.text?.replace(/\{\{c\d+::([^:}]+)(?:::[^}]*)?\}\}/g, '[___]') || "";
+                      } catch { return ""; }
+                    })()}
+                  </div>
+                )}
+                {question.type === "code_eval" && question.correctAnswer && (
+                  <div className="text-xs px-2 py-1 rounded bg-muted font-mono">
+                    {(() => {
+                      try {
+                        const data = JSON.parse(question.correctAnswer);
+                        return `${data.language || "code"} (${data.mode})`;
+                      } catch { return "code"; }
+                    })()}
                   </div>
                 )}
               </div>
