@@ -31,6 +31,14 @@ export function MultipleChoice({
   disabled,
 }: MultipleChoiceProps) {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [shuffledOptions] = useState(() => {
+    const arr = [...question.options];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  });
 
   const handleSelect = (optionId: number) => {
     if (disabled) return;
@@ -49,7 +57,7 @@ export function MultipleChoice({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        {question.options.map((option) => (
+        {shuffledOptions.map((option) => (
           <button
             key={option.id}
             onClick={() => handleSelect(option.id)}

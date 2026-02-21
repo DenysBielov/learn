@@ -33,6 +33,14 @@ export function MultiSelect({
   const [selectedOptions, setSelectedOptions] = useState<Set<number>>(
     new Set()
   );
+  const [shuffledOptions] = useState(() => {
+    const arr = [...question.options];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  });
 
   const handleSelect = (optionId: number) => {
     if (disabled) return;
@@ -71,7 +79,7 @@ export function MultiSelect({
         Select all that apply:
       </p>
       <div className="space-y-2">
-        {question.options.map((option) => (
+        {shuffledOptions.map((option) => (
           <button
             key={option.id}
             onClick={() => handleSelect(option.id)}
