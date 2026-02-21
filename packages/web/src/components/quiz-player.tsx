@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +67,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   const [completed, setCompleted] = useState(false);
   const [results, setResults] = useState<AnswerResult[]>([]);
   const [skipping, setSkipping] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Initialize quiz session on mount
   useEffect(() => {
@@ -109,6 +110,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
     // Move to next question or complete
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       setAnswered(false);
       setResult(null);
       setStartTime(Date.now());
@@ -142,6 +144,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
 
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       setAnswered(false);
       setResult(null);
       setStartTime(Date.now());
@@ -210,7 +213,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
 
   return (
     <div className="flex gap-0 h-[calc(100dvh-4rem)] md:h-dvh overflow-hidden">
-      <div className="flex-1 min-w-0 flex justify-center px-4 py-8 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 min-w-0 flex justify-center px-4 py-8 overflow-y-auto">
       <div className="w-full max-w-3xl space-y-6">
       {/* Progress bar */}
       <div className="space-y-2">

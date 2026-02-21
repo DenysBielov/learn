@@ -60,6 +60,7 @@ export function FlashcardStudy({
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(384); // min h-96
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Measure both sides and use the taller one
   useEffect(() => {
@@ -95,6 +96,7 @@ export function FlashcardStudy({
   const goBack = useCallback(() => {
     if (currentIndex > 0 && !isSubmitting && !skipping) {
       setCurrentIndex(currentIndex - 1);
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       setIsFlipped(false);
       setStartTime(Date.now());
     }
@@ -159,6 +161,7 @@ export function FlashcardStudy({
       // Move to next card or complete
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
         setIsFlipped(false);
         setStartTime(Date.now());
       } else {
@@ -189,6 +192,7 @@ export function FlashcardStudy({
 
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
         setIsFlipped(false);
         setStartTime(Date.now());
       } else {
@@ -267,7 +271,7 @@ export function FlashcardStudy({
 
   return (
     <div className="flex gap-0 h-[calc(100dvh-4rem)] md:h-dvh overflow-hidden">
-      <div className="flex-1 min-w-0 flex justify-center px-4 py-8 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 min-w-0 flex justify-center px-4 py-8 overflow-y-auto">
       <div className="w-full max-w-3xl space-y-6">
       {/* Progress bar */}
       <div className="space-y-2">
