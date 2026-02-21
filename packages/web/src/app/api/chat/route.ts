@@ -10,8 +10,10 @@ import {
   quizQuestions,
   decks,
   studySessions,
+  courses,
 } from "@flashcards/database/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { requireAuth } from "@/lib/auth";
 import {
   checkChatRateLimit,
@@ -45,7 +47,8 @@ Style:
 Teaching:
 - Answer the student's question directly and thoroughly.
 - Use web search when the student asks about related concepts or current info.
-- Use the image_generation tool when a visual diagram or illustration would help.`;
+- Use the image_generation tool when a visual diagram or illustration would help.
+- When relevant, connect the current concept to related topics in the student's course structure — explain how ideas from sibling subjects relate.`;
 
 const EDUCATE_SYSTEM_PROMPT = `You are a Socratic tutor guiding a student to discover answers.
 
@@ -60,7 +63,8 @@ Teaching:
 - Ask leading questions and give hints.
 - If the student is stuck, narrow down the problem, but let them arrive at the answer.
 - Use web search for related concepts if needed.
-- Use the image_generation tool when a visual would help.`;
+- Use the image_generation tool when a visual would help.
+- When relevant, connect the current concept to related topics in the student's course structure — explain how ideas from sibling subjects relate.`;
 
 function buildContextMessage(context: {
   deckName: string;
@@ -352,6 +356,62 @@ export async function POST(request: NextRequest) {
         explanation: isEducate ? null : q.explanation,
         userAnswer: userAnswer ?? undefined,
       });
+    }
+  }
+
+  // Enrich context with course hierarchy
+  if (contextMessage) {
+    const session = db
+      .select({ courseId: studySessions.courseId })
+      .from(studySessions)
+      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
+      .get();
+
+    if (session?.courseId) {
+      // Fetch course and optional parent in a single query via LEFT JOIN using alias
+      const parentCourse = alias(courses, "parent_course");
+      const courseWithParent = db
+        .select({
+          id: courses.id,
+          name: courses.name,
+          description: courses.description,
+          parentId: courses.parentId,
+          parentName: parentCourse.name,
+          parentDescription: parentCourse.description,
+        })
+        .from(courses)
+        .leftJoin(parentCourse, and(eq(parentCourse.id, courses.parentId), eq(parentCourse.userId, userId)))
+        .where(and(eq(courses.id, session.courseId), eq(courses.userId, userId)))
+        .get();
+
+      if (courseWithParent) {
+        const courseLines: string[] = [];
+        courseLines.push(`Course: "${sanitizeContent(courseWithParent.name)}"${courseWithParent.description ? ` — "${sanitizeContent(courseWithParent.description)}"` : ""}`);
+
+        if (courseWithParent.parentId) {
+          if (courseWithParent.parentName) {
+            courseLines.push(`Part of: "${sanitizeContent(courseWithParent.parentName)}"${courseWithParent.parentDescription ? ` — "${sanitizeContent(courseWithParent.parentDescription)}"` : ""}`);
+          }
+
+          // Sibling subcourses (same parent, excluding current) — limit to 10 to avoid excessive context
+          const siblings = db
+            .select({ name: courses.name })
+            .from(courses)
+            .where(and(eq(courses.parentId, courseWithParent.parentId), ne(courses.id, courseWithParent.id), eq(courses.userId, userId)))
+            .limit(10)
+            .all();
+
+          if (siblings.length > 0) {
+            courseLines.push(`Related subcourses: ${siblings.map(s => `"${sanitizeContent(s.name)}"`).join(", ")}`);
+          }
+        }
+
+        // Insert course context before [END CONTEXT]
+        contextMessage = contextMessage.replace(
+          "[END CONTEXT]",
+          courseLines.join("\n") + "\n[END CONTEXT]"
+        );
+      }
     }
   }
 

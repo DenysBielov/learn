@@ -5,6 +5,8 @@
  */
 export function sanitizeContent(text: string): string {
   return text
+    .replace(/\[END CONTEXT\]/gi, "")
+    .replace(/\[CONTEXT\s*[—–-]/gi, "")
     .replace(/\[SYSTEM\]/gi, "")
     .replace(/\[INST\]/gi, "")
     .replace(/<<SYS>>/gi, "")
