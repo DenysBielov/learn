@@ -11,7 +11,7 @@ import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
     "create_quiz",
-    "Create multiple quiz questions in a deck. Supported types: multiple_choice, true_false, free_text, matching, ordering, cloze (Anki-style {{c1::word}} syntax), multi_select (multiple correct answers), code_eval (code snippet with auto or AI scoring). Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).",
+    "Create multiple quiz questions in a deck. Supported types: multiple_choice, true_false, free_text, matching, ordering, cloze (Anki-style {{c1::word}} syntax), multi_select (multiple correct answers), code_eval (code snippet with auto or AI scoring). Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)). IMPORTANT: When creating multiple_choice or multi_select questions, randomize the position of the correct answer across questions — do NOT always place it as the first option. Vary correct answer positions (A, B, C, D) roughly equally across the quiz.",
     {
       deckId: z.number().int().positive(),
       questions: z.array(z.object({
