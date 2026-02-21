@@ -1,10 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Drawer,
-  DrawerContent,
-} from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +13,11 @@ import { SessionNotes } from "./session-notes";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const STORAGE_KEY = "session-panel-collapsed";
-const SIDEBAR_WIDTH = 320;
+const STORAGE_KEY_WIDTH = "session-panel-width";
+const DEFAULT_WIDTH = 320;
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 600;
+const RAIL_WIDTH = 48;
 
 function getInitialCollapsed(): boolean {
   if (typeof window === "undefined") return true;
@@ -48,6 +48,8 @@ export function SessionPanel({
   const [activeTab, setActiveTab] = useState<"chat" | "notes">("chat");
   const [hasUnread, setHasUnread] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
   const unreadTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const isMobile = useIsMobile();
 
@@ -57,9 +59,18 @@ export function SessionPanel({
     collapsedRef.current = collapsed;
   }, [collapsed]);
 
-  // Hydrate collapsed state from localStorage after mount
+  // Hydrate collapsed state and width from localStorage after mount
   useEffect(() => {
     setCollapsed(getInitialCollapsed());
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_WIDTH);
+      if (stored) {
+        const parsed = Number(stored);
+        if (parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) setWidth(parsed);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // Persist collapsed state to localStorage
@@ -70,6 +81,41 @@ export function SessionPanel({
       // ignore storage errors
     }
   }, [collapsed]);
+
+  // Resize handle logic — uses refs for smooth drag without transition lag
+  const widthRef = useRef(width);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, window.innerWidth - ev.clientX));
+      widthRef.current = newWidth;
+      // Write directly to DOM — avoids React re-render per pixel
+      if (outerRef.current) outerRef.current.style.width = `${newWidth}px`;
+      if (asideRef.current) asideRef.current.style.width = `${newWidth}px`;
+    };
+
+    const onMouseUp = () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      // Sync React state & persist
+      const finalWidth = widthRef.current;
+      setWidth(finalWidth);
+      setIsResizing(false);
+      try { localStorage.setItem(STORAGE_KEY_WIDTH, String(finalWidth)); } catch { /* ignore */ }
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
 
   const expand = useCallback((tab?: "chat" | "notes") => {
     if (tab) setActiveTab(tab);
@@ -130,18 +176,29 @@ export function SessionPanel({
 
   return (
     <>
-      {/* Desktop sidebar — outer wrapper transitions width, inner aside transitions transform */}
+      {/* Desktop sidebar — outer wrapper transitions width (disabled during resize) */}
       <div
-        className="hidden md:block flex-shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
-        style={{ width: collapsed ? 48 : SIDEBAR_WIDTH }}
+        ref={outerRef}
+        className={`hidden md:block flex-shrink-0 overflow-hidden ${isResizing ? "" : "transition-[width] duration-200 ease-in-out"}`}
+        style={{ width: collapsed ? RAIL_WIDTH : width }}
       >
         <aside
-          className="flex h-full flex-col border-l bg-background"
-          style={{ width: SIDEBAR_WIDTH }}
+          ref={asideRef}
+          className="relative flex h-full flex-col border-l bg-background"
+          style={{ width }}
         >
+          {/* Resize handle — 8px invisible hit area, 2px visible line on hover */}
+          {!collapsed && (
+            <div
+              onMouseDown={handleResizeStart}
+              className="absolute inset-y-0 left-0 z-10 w-2 cursor-col-resize group"
+            >
+              <div className="absolute inset-y-0 left-0 w-0.5 group-hover:bg-primary/40 group-active:bg-primary/60 transition-colors" />
+            </div>
+          )}
           {collapsed ? (
             /* Collapsed rail — 48px visible portion of the aside */
-            <div className="flex flex-col items-center gap-2 py-3" style={{ width: 48 }}>
+            <div className="flex flex-col items-center gap-2 py-3" style={{ width: RAIL_WIDTH }}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -185,9 +242,7 @@ export function SessionPanel({
         </aside>
       </div>
 
-      {/* Mobile: FAB trigger + vaul Drawer bottom sheet */}
-      {/* FAB at bottom-20 (80px) clears the 64px mobile nav bar */}
-      {/* Hidden when drawer is open */}
+      {/* Mobile: FAB trigger */}
       {!mobileOpen && (
         <Button
           variant="default"
@@ -203,11 +258,18 @@ export function SessionPanel({
         </Button>
       )}
 
-      <Drawer open={mobileOpen} onOpenChange={setMobileOpen} snapPoints={[0.5, 0.95]} fadeFromIndex={0}>
-        <DrawerContent className="flex flex-col p-0">
-          {isMobile && mobileOpen && chatContent}
-        </DrawerContent>
-      </Drawer>
+      {/* Mobile sheet */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 h-[85dvh] bg-background rounded-t-lg border-t flex flex-col animate-in slide-in-from-bottom duration-200">
+            <button onClick={() => setMobileOpen(false)} className="flex justify-center py-2 cursor-pointer">
+              <div className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
+            </button>
+            {chatContent}
+          </div>
+        </div>
+      )}
     </>
   );
 }
