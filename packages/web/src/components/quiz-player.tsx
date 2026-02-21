@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import { Cloze } from "@/components/question-types/cloze";
 import { MultiSelect } from "@/components/question-types/multi-select";
 import { CodeEval } from "@/components/question-types/code-eval";
 import { toggleFlag } from "@/app/actions/flags";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ChevronLeft } from "lucide-react";
 import { CompletionNotes } from "@/components/completion-notes";
 
 interface QuestionOption {
@@ -65,9 +65,35 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [startTime, setStartTime] = useState(Date.now());
   const [completed, setCompleted] = useState(false);
-  const [results, setResults] = useState<AnswerResult[]>([]);
+  const [results, setResults] = useState<(AnswerResult | null)[]>(() => Array(questions.length).fill(null));
   const [skipping, setSkipping] = useState(false);
+  const [reviewingPrevious, setReviewingPrevious] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const navigateToQuestion = useCallback((index: number) => {
+    setCurrentIndex(index);
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
+    const storedResult = results[index];
+    if (storedResult && storedResult.userAnswer !== "[skipped]") {
+      // Previously answered — show read-only
+      setAnswered(true);
+      setResult(storedResult);
+      setReviewingPrevious(true);
+    } else {
+      // New question or previously skipped — allow answering
+      setAnswered(false);
+      setResult(null);
+      setReviewingPrevious(false);
+    }
+    setStartTime(Date.now());
+  }, [results]);
+
+  const goBack = useCallback(() => {
+    if (currentIndex > 0 && !skipping) {
+      navigateToQuestion(currentIndex - 1);
+    }
+  }, [currentIndex, skipping, navigateToQuestion]);
 
   // Initialize quiz session on mount
   useEffect(() => {
@@ -81,12 +107,38 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
     initSession();
   }, [deckId, courseId]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (completed || skipping) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+
+      if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        goBack();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [completed, skipping, goBack]);
+
   const handleAnswer = async (isCorrect: boolean, userAnswer: string) => {
     if (!sessionId || answered) return;
 
     const timeSpentMs = Date.now() - startTime;
+    const newResult = { correct: isCorrect, userAnswer };
     setAnswered(true);
-    setResult({ correct: isCorrect, userAnswer });
+    setResult(newResult);
+    setReviewingPrevious(false);
+
+    // Store result at current index
+    setResults(prev => {
+      const updated = [...prev];
+      updated[currentIndex] = newResult;
+      return updated;
+    });
 
     try {
       await submitQuizAnswer(
@@ -104,16 +156,8 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   const handleNext = async () => {
     if (!result) return;
 
-    const updatedResults = [...results, result];
-    setResults(updatedResults);
-
-    // Move to next question or complete
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      setAnswered(false);
-      setResult(null);
-      setStartTime(Date.now());
+      navigateToQuestion(currentIndex + 1);
     } else {
       // Quiz complete
       if (sessionId) {
@@ -135,32 +179,31 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
         submitQuizAnswer(sessionId, questions[currentIndex].id, false, "[skipped]", timeSpentMs),
         toggleFlag("requires_more_study", undefined, questions[currentIndex].id),
       ]);
+
+      setResults(prev => {
+        const updated = [...prev];
+        updated[currentIndex] = skipResult;
+        return updated;
+      });
+
+      if (currentIndex < questions.length - 1) {
+        navigateToQuestion(currentIndex + 1);
+      } else {
+        await completeStudySession(sessionId);
+        setCompleted(true);
+      }
     } catch (error) {
       console.error("Error skipping question:", error);
+    } finally {
+      setSkipping(false);
     }
-
-    const updatedResults = [...results, skipResult];
-    setResults(updatedResults);
-
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      setAnswered(false);
-      setResult(null);
-      setStartTime(Date.now());
-    } else {
-      if (sessionId) {
-        await completeStudySession(sessionId);
-      }
-      setCompleted(true);
-    }
-    setSkipping(false);
   };
 
   if (completed) {
-    const correctCount = results.filter((r) => r.correct).length;
-    const incorrectCount = results.filter((r) => !r.correct).length;
-    const percentage = results.length > 0 ? Math.round((correctCount / results.length) * 100) : 0;
+    const answeredResults = results.filter((r): r is AnswerResult => r !== null);
+    const correctCount = answeredResults.filter((r) => r.correct).length;
+    const incorrectCount = answeredResults.filter((r) => !r.correct).length;
+    const percentage = answeredResults.length > 0 ? Math.round((correctCount / answeredResults.length) * 100) : 0;
 
     return (
       <div className="max-w-4xl mx-auto">
@@ -177,7 +220,7 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
             <div className="mb-6 rounded-lg border bg-primary/10 p-6 text-center">
               <div className="text-4xl font-bold">{percentage}%</div>
               <div className="text-muted-foreground mt-2">
-                {correctCount} out of {results.length} correct
+                {correctCount} out of {answeredResults.length} correct
               </div>
             </div>
 
@@ -218,9 +261,22 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
       {/* Progress bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Question {currentIndex + 1} of {questions.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {currentIndex > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={goBack}
+                disabled={skipping}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <span className="text-muted-foreground">
+              Question {currentIndex + 1} of {questions.length}
+            </span>
+          </div>
           <span className="text-muted-foreground">{deckName}</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -246,78 +302,89 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Question type component */}
-          {currentQuestion.type === "multiple_choice" && (
-            <MultipleChoice
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "true_false" && (
-            <TrueFalse
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "free_text" && (
-            <FreeText
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "matching" && (
-            <Matching
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "ordering" && (
-            <Ordering
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "open_ended" && (
-            <OpenEnded
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "cloze" && (
-            <Cloze
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "multi_select" && (
-            <MultiSelect
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
-          )}
-          {currentQuestion.type === "code_eval" && (
-            <CodeEval
-              key={currentQuestion.id}
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              disabled={answered}
-            />
+          {/* Question type component or review summary */}
+          {reviewingPrevious && result ? (
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm">
+                <span className="font-medium">Your answer:</span>{" "}
+                {result.userAnswer}
+              </p>
+            </div>
+          ) : (
+            <>
+              {currentQuestion.type === "multiple_choice" && (
+                <MultipleChoice
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "true_false" && (
+                <TrueFalse
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "free_text" && (
+                <FreeText
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "matching" && (
+                <Matching
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "ordering" && (
+                <Ordering
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "open_ended" && (
+                <OpenEnded
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "cloze" && (
+                <Cloze
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "multi_select" && (
+                <MultiSelect
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+              {currentQuestion.type === "code_eval" && (
+                <CodeEval
+                  key={currentQuestion.id}
+                  question={currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={answered}
+                />
+              )}
+            </>
           )}
 
           {/* Skip button */}
