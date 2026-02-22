@@ -183,6 +183,21 @@ export const cardFlags = sqliteTable("card_flag", {
   index("idx_card_flag_question").on(table.questionId),
 ]);
 
+// --- LearningMaterial ---
+export const learningMaterials = sqliteTable("learning_material", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  flashcardId: integer("flashcard_id").references(() => flashcards.id, { onDelete: "cascade" }),
+  questionId: integer("question_id").references(() => quizQuestions.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  title: text("title"),
+  type: text("type", { enum: ["article", "video", "obsidian", "other"] }).notNull().default("article"),
+  position: integer("position").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_learning_material_flashcard").on(table.flashcardId),
+  index("idx_learning_material_question").on(table.questionId),
+]);
+
 // --- ChatConversation ---
 export const chatConversations = sqliteTable("chat_conversation", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -236,6 +251,7 @@ export const flashcardRelations = relations(flashcards, ({ one, many }) => ({
   tags: many(flashcardTags),
   results: many(flashcardResults),
   flags: many(cardFlags),
+  learningMaterials: many(learningMaterials),
 }));
 
 export const quizQuestionRelations = relations(quizQuestions, ({ one, many }) => ({
@@ -244,6 +260,7 @@ export const quizQuestionRelations = relations(quizQuestions, ({ one, many }) =>
   tags: many(questionTags),
   results: many(quizResults),
   flags: many(cardFlags),
+  learningMaterials: many(learningMaterials),
 }));
 
 export const questionOptionRelations = relations(questionOptions, ({ one }) => ({
@@ -295,6 +312,11 @@ export const cardFlagRelations = relations(cardFlags, ({ one }) => ({
   user: one(users, { fields: [cardFlags.userId], references: [users.id] }),
   flashcard: one(flashcards, { fields: [cardFlags.flashcardId], references: [flashcards.id] }),
   question: one(quizQuestions, { fields: [cardFlags.questionId], references: [quizQuestions.id] }),
+}));
+
+export const learningMaterialRelations = relations(learningMaterials, ({ one }) => ({
+  flashcard: one(flashcards, { fields: [learningMaterials.flashcardId], references: [flashcards.id] }),
+  question: one(quizQuestions, { fields: [learningMaterials.questionId], references: [quizQuestions.id] }),
 }));
 
 export const chatConversationRelations = relations(chatConversations, ({ one, many }) => ({

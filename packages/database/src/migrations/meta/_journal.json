@@ -78,6 +78,13 @@
       "when": 1771574400000,
       "tag": "0010_fix_chat_message_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1771777858062,
+      "tag": "0011_useful_frog_thor",
+      "breakpoints": true
     }
   ]
 }
