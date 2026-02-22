@@ -17,6 +17,7 @@ import {
 } from "@/app/actions/flashcards";
 import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen, ChevronLeft } from "lucide-react";
+import { TagBadge } from "@/components/tag-badge";
 import type { Sm2Rating } from "@/lib/sm2";
 import { CompletionNotes } from "@/components/completion-notes";
 
@@ -32,12 +33,19 @@ interface Flashcard {
   createdAt: Date;
 }
 
+interface ActiveFilterTag {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 interface FlashcardStudyProps {
   deckId: number;
   deckName: string;
   cards: Flashcard[];
   courseId?: number;
   subMode?: string;
+  activeFilterTags?: ActiveFilterTag[];
 }
 
 export function FlashcardStudy({
@@ -46,6 +54,7 @@ export function FlashcardStudy({
   cards,
   courseId,
   subMode,
+  activeFilterTags,
 }: FlashcardStudyProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -291,6 +300,13 @@ export function FlashcardStudy({
             <span className="text-muted-foreground">
               Card {currentIndex + 1} of {cards.length}
             </span>
+            {activeFilterTags && activeFilterTags.length > 0 && (
+              <div className="flex gap-1 ml-2">
+                {activeFilterTags.map((tag) => (
+                  <TagBadge key={tag.id} tag={tag} />
+                ))}
+              </div>
+            )}
           </div>
           <span className="text-muted-foreground">
             {deckName}
