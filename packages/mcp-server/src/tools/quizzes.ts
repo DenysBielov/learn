@@ -8,6 +8,7 @@ import {
   questionOptions,
   courses,
   courseSteps,
+  materials,
   writeTransaction,
 } from "@flashcards/database";
 import { createQuizQuestionForQuizSchema } from "@flashcards/database/validation";
@@ -109,6 +110,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
     "Add quiz questions to a standalone quiz. Same question types and format as create_quiz but uses quizId instead of deckId.",
     {
       quizId: z.number().int().positive(),
+      sourceMaterialId: z.number().int().positive().optional().describe("Optional ID of the source material these questions were generated from."),
       questions: z.array(z.object({
         type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]),
         question: z.string().min(1).max(10240),
@@ -120,15 +122,23 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
         correctAnswer: z.any().optional(),
       })).min(1).max(50),
     },
-    async ({ quizId, questions }) => {
+    async ({ quizId, sourceMaterialId, questions }) => {
       const quiz = db.select({ id: quizzes.id }).from(quizzes)
         .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
       if (!quiz) {
         return { content: [{ type: "text" as const, text: `Quiz ${quizId} not found` }], isError: true };
       }
 
+      if (sourceMaterialId) {
+        const material = db.select({ userId: materials.userId }).from(materials)
+          .where(eq(materials.id, sourceMaterialId)).get();
+        if (!material || material.userId !== userId) {
+          return { content: [{ type: "text" as const, text: "Source material not found or not owned by user" }], isError: true };
+        }
+      }
+
       const validatedQuestions = questions.map(q =>
-        createQuizQuestionForQuizSchema.parse({ ...q, quizId })
+        createQuizQuestionForQuizSchema.parse({ ...q, quizId, sourceMaterialId })
       );
 
       const created = writeTransaction(db, () => {
@@ -145,6 +155,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
             question: sanitizeMarkdownImageUrls(parsed.question),
             explanation: sanitizeMarkdownImageUrls(parsed.explanation ?? ""),
             correctAnswer: correctAnswerJson,
+            sourceMaterialId: sourceMaterialId ?? null,
           } as any).returning().all();
 
           results.push(inserted.id);

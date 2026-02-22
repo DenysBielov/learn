@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import {
-  type AppDatabase, quizQuestions, questionOptions, decks, quizzes,
+  type AppDatabase, quizQuestions, questionOptions, decks, quizzes, materials,
   writeTransaction,
 } from "@flashcards/database";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
@@ -14,6 +14,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
     "Create multiple quiz questions in a deck. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).\n\nQUESTION TYPE SELECTION — use the right type for the concept being tested:\n- multiple_choice: factual recall, distinguishing similar concepts. Use plausible distractors.\n- true_false: common misconceptions, rules/principles. Always include explanation.\n- free_text: recall without cues — definitions, key terms. List accepted answer variants.\n- matching: related pairs (term↔definition, cause↔effect, input↔output).\n- ordering: sequential processes, timelines, algorithm steps.\n- cloze: in-context recall — formulas, code syntax, key phrases. {{c1::answer}} syntax.\n- multi_select: multiple correct answers — nuanced understanding, \"select all that apply\".\n- code_eval: programming — predict output, find bugs, trace execution.\n- open_ended: deeper analysis, explanations, design questions (higher-order thinking).\n\nTYPE DISTRIBUTION — for 10+ questions, use 4+ distinct types (no single type >40%). For 5-9, use 3+ types. For <5, use 2+ types.\n\nANSWER POSITIONING — randomize correct answer positions across multiple_choice/multi_select questions. Vary positions (A, B, C, D) roughly equally.\n\nRead the learning_content_guide resource for detailed best practices, topic-specific recommendations, and examples.",
     {
       deckId: z.number().int().positive(),
+      sourceMaterialId: z.number().int().positive().optional().describe("Optional ID of the source material these questions were generated from."),
       questions: z.array(z.object({
         type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]),
         question: z.string().min(1).max(10240).describe("Question text. Supports Markdown and LaTeX math."),
@@ -25,7 +26,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
         correctAnswer: z.any().optional(),
       })).min(1).max(50),
     },
-    async ({ deckId, questions }) => {
+    async ({ deckId, sourceMaterialId, questions }) => {
       // Verify deck belongs to user
       const deck = db.select({ id: decks.id }).from(decks)
         .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
@@ -33,9 +34,17 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
         return { content: [{ type: "text" as const, text: `Deck ${deckId} not found` }], isError: true };
       }
 
+      if (sourceMaterialId) {
+        const material = db.select({ userId: materials.userId }).from(materials)
+          .where(eq(materials.id, sourceMaterialId)).get();
+        if (!material || material.userId !== userId) {
+          return { content: [{ type: "text" as const, text: "Source material not found or not owned by user" }], isError: true };
+        }
+      }
+
       // Validate each question against the discriminated union schema
       const validatedQuestions = questions.map(q =>
-        createQuizQuestionSchema.parse({ ...q, deckId })
+        createQuizQuestionSchema.parse({ ...q, deckId, sourceMaterialId })
       );
 
       const created = writeTransaction(db, () => {
@@ -51,6 +60,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
             question: sanitizeMarkdownImageUrls(parsed.question),
             explanation: sanitizeMarkdownImageUrls(parsed.explanation ?? ""),
             correctAnswer: correctAnswerJson,
+            sourceMaterialId: sourceMaterialId ?? null,
           }).returning().all();
 
           results.push(inserted.id);

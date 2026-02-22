@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials } from "@flashcards/database/schema";
+import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials, materials } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -34,10 +34,12 @@ function attachLearningMaterials<T extends { id: number }>(
 
 export async function createFlashcard(formData: FormData) {
   const { userId } = await requireAuth();
+  const rawSourceMaterialId = formData.get("sourceMaterialId");
   const parsed = createFlashcardSchema.parse({
     deckId: Number(formData.get("deckId")),
     front: formData.get("front"),
     back: formData.get("back"),
+    sourceMaterialId: rawSourceMaterialId ? Number(rawSourceMaterialId) : undefined,
   });
 
   const sanitized = {
@@ -50,6 +52,14 @@ export async function createFlashcard(formData: FormData) {
   const deck = db.select({ id: decks.id }).from(decks)
     .where(and(eq(decks.id, sanitized.deckId), eq(decks.userId, userId))).get();
   if (!deck) throw new Error("Deck not found");
+
+  if (sanitized.sourceMaterialId) {
+    const material = db.select({ userId: materials.userId }).from(materials)
+      .where(eq(materials.id, sanitized.sourceMaterialId)).get();
+    if (!material || material.userId !== userId) {
+      throw new Error("Source material not found or not owned by user");
+    }
+  }
 
   writeTransaction(db, () =>
     db.insert(flashcards).values(sanitized).run()

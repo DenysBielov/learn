@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { quizQuestions, questionOptions, quizResults, decks, studySessions, quizzes, courseSteps } from "@flashcards/database/schema";
+import { quizQuestions, questionOptions, quizResults, decks, studySessions, quizzes, courseSteps, materials } from "@flashcards/database/schema";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
 import { and, eq, sql } from "drizzle-orm";
 import { getDescendantDeckIds, getDescendantQuizIds } from "@flashcards/database/courses";
@@ -20,6 +20,14 @@ export async function createQuizQuestion(data: unknown) {
     .where(and(eq(decks.id, parsed.deckId), eq(decks.userId, userId))).get();
   if (!deck) throw new Error("Deck not found");
 
+  if (parsed.sourceMaterialId) {
+    const material = db.select({ userId: materials.userId }).from(materials)
+      .where(eq(materials.id, parsed.sourceMaterialId)).get();
+    if (!material || material.userId !== userId) {
+      throw new Error("Source material not found or not owned by user");
+    }
+  }
+
   writeTransaction(db, () => {
     const correctAnswerJson = "correctAnswer" in parsed
       ? JSON.stringify(parsed.correctAnswer)
@@ -31,6 +39,7 @@ export async function createQuizQuestion(data: unknown) {
       question: parsed.question,
       explanation: parsed.explanation ?? "",
       correctAnswer: correctAnswerJson,
+      sourceMaterialId: parsed.sourceMaterialId ?? null,
     }).returning().all();
 
     if ("options" in parsed && parsed.options) {

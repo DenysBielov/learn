@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import {
-  type AppDatabase, decks, flashcards, flashcardTags, tags,
+  type AppDatabase, decks, flashcards, flashcardTags, tags, materials,
   writeTransaction,
 } from "@flashcards/database";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
@@ -13,16 +13,24 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
     "Batch-create flashcards in a deck. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).\n\nCARD QUALITY RULES:\n- One concept per card — test exactly one thing. Break complex ideas into multiple cards.\n- Keep answers short — ideally one word or brief phrase.\n- Avoid yes/no questions — use direct questions or cloze format instead.\n- Include context cues — topic labels help when reviewing mixed decks.\n- Use precise wording — ambiguous questions cause unreliable self-grading.\n- Avoid enumerations — don't ask \"list all X\"; break into individual cards.\n\nRead the learning_content_guide resource for detailed flashcard creation principles.",
     {
       deckId: z.number().int().positive(),
+      sourceMaterialId: z.number().int().positive().optional().describe("Optional ID of the source material these flashcards were generated from."),
       cards: z.array(z.object({
         front: z.string().min(1).max(10240).describe("Front of the card. Supports Markdown and LaTeX math ($..$ inline, $$...$$ block)."),
         back: z.string().min(1).max(10240).describe("Back of the card. Supports Markdown and LaTeX math ($..$ inline, $$...$$ block)."),
       })).min(1).max(100),
     },
-    async ({ deckId, cards }) => {
+    async ({ deckId, sourceMaterialId, cards }) => {
       const deck = db.select({ id: decks.id }).from(decks)
         .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
       if (!deck) {
         return { content: [{ type: "text" as const, text: `Deck ${deckId} not found` }], isError: true };
+      }
+      if (sourceMaterialId) {
+        const material = db.select({ userId: materials.userId }).from(materials)
+          .where(eq(materials.id, sourceMaterialId)).get();
+        if (!material || material.userId !== userId) {
+          return { content: [{ type: "text" as const, text: "Source material not found or not owned by user" }], isError: true };
+        }
       }
       const created = writeTransaction(db, () =>
         db.insert(flashcards)
@@ -30,6 +38,7 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
             deckId,
             front: sanitizeMarkdownImageUrls(c.front),
             back: sanitizeMarkdownImageUrls(c.back),
+            sourceMaterialId: sourceMaterialId ?? null,
           })))
           .returning()
           .all()

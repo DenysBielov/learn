@@ -26,10 +26,12 @@ export const createFlashcardSchema = z.object({
   deckId: z.number().int().positive(),
   front: z.string().min(1).max(MAX_FLASHCARD_SIDE),
   back: z.string().min(1).max(MAX_FLASHCARD_SIDE),
+  sourceMaterialId: z.number().int().positive().optional(),
 });
 
 export const createFlashcardBatchSchema = z.object({
   deckId: z.number().int().positive(),
+  sourceMaterialId: z.number().int().positive().optional(),
   cards: z.array(z.object({
     front: z.string().min(1).max(MAX_FLASHCARD_SIDE),
     back: z.string().min(1).max(MAX_FLASHCARD_SIDE),
@@ -61,6 +63,7 @@ const baseQuestionSchema = z.object({
   deckId: z.number().int().positive(),
   question: z.string().min(1).max(MAX_QUESTION_TEXT),
   explanation: z.string().max(MAX_EXPLANATION).default(""),
+  sourceMaterialId: z.number().int().positive().optional(),
 });
 
 export const createMultipleChoiceSchema = baseQuestionSchema.extend({
@@ -247,6 +250,7 @@ const baseQuizQuestionForQuizSchema = z.object({
   quizId: z.number().int().positive(),
   question: z.string().min(1).max(MAX_QUESTION_TEXT),
   explanation: z.string().max(MAX_EXPLANATION).default(""),
+  sourceMaterialId: z.number().int().positive().optional(),
 });
 
 export const createQuizQuestionForQuizSchema = z.discriminatedUnion("type", [
