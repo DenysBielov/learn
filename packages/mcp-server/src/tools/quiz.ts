@@ -11,11 +11,11 @@ import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
     "create_quiz",
-    "Create multiple quiz questions in a deck. Supported types: multiple_choice, true_false, free_text, matching, ordering, cloze (Anki-style {{c1::word}} syntax), multi_select (multiple correct answers), code_eval (code snippet with auto or AI scoring). Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)). IMPORTANT: When creating multiple_choice or multi_select questions, randomize the position of the correct answer across questions — do NOT always place it as the first option. Vary correct answer positions (A, B, C, D) roughly equally across the quiz.",
+    "Create multiple quiz questions in a deck. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).\n\nQUESTION TYPE SELECTION — use the right type for the concept being tested:\n- multiple_choice: factual recall, distinguishing similar concepts. Use plausible distractors.\n- true_false: common misconceptions, rules/principles. Always include explanation.\n- free_text: recall without cues — definitions, key terms. List accepted answer variants.\n- matching: related pairs (term↔definition, cause↔effect, input↔output).\n- ordering: sequential processes, timelines, algorithm steps.\n- cloze: in-context recall — formulas, code syntax, key phrases. {{c1::answer}} syntax.\n- multi_select: multiple correct answers — nuanced understanding, \"select all that apply\".\n- code_eval: programming — predict output, find bugs, trace execution.\n- open_ended: deeper analysis, explanations, design questions (higher-order thinking).\n\nTYPE DISTRIBUTION — for 10+ questions, use 4+ distinct types (no single type >40%). For 5-9, use 3+ types. For <5, use 2+ types.\n\nANSWER POSITIONING — randomize correct answer positions across multiple_choice/multi_select questions. Vary positions (A, B, C, D) roughly equally.\n\nRead the learning_content_guide resource for detailed best practices, topic-specific recommendations, and examples.",
     {
       deckId: z.number().int().positive(),
       questions: z.array(z.object({
-        type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval"]),
+        type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]),
         question: z.string().min(1).max(10240).describe("Question text. Supports Markdown and LaTeX math."),
         explanation: z.string().max(5120).optional().describe("Explanation shown after answering. Supports Markdown and LaTeX."),
         options: z.array(z.object({
@@ -77,7 +77,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
     "List quiz questions, filterable by deck, tag, or type",
     {
       deckId: z.number().int().positive().optional(),
-      type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval"]).optional(),
+      type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]).optional(),
       tagName: z.string().optional(),
     },
     async ({ deckId, type, tagName }) => {
@@ -96,6 +96,99 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
       });
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "update_question",
+    "Update a quiz question's text or explanation. For structural changes (type, options, correctAnswer), use delete_questions + create_quiz instead.",
+    {
+      questionId: z.number().int().positive(),
+      question: z.string().min(1).max(10240).optional(),
+      explanation: z.string().max(5120).optional(),
+    },
+    async ({ questionId, question, explanation }) => {
+      // Verify question belongs to user via deck ownership
+      const existing = db.select({ id: quizQuestions.id }).from(quizQuestions)
+        .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+        .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+      if (!existing) {
+        return { content: [{ type: "text" as const, text: `Question ${questionId} not found` }], isError: true };
+      }
+
+      const updates: Record<string, string> = {};
+      if (question !== undefined) updates.question = sanitizeMarkdownImageUrls(question);
+      if (explanation !== undefined) updates.explanation = sanitizeMarkdownImageUrls(explanation);
+
+      if (Object.keys(updates).length === 0) {
+        return { content: [{ type: "text" as const, text: "No fields to update" }], isError: true };
+      }
+
+      const updated = writeTransaction(db, () =>
+        db.update(quizQuestions).set(updates).where(eq(quizQuestions.id, questionId)).returning().all()
+      );
+
+      return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "delete_questions",
+    "Delete quiz questions by IDs. Without confirm=true, returns a preview of what would be deleted.",
+    {
+      questionIds: z.array(z.number().int().positive()).min(1).max(100),
+      confirm: z.boolean().optional(),
+    },
+    async ({ questionIds, confirm }) => {
+      const uniqueIds = [...new Set(questionIds)];
+
+      // Verify all questions belong to user
+      const owned = db.select({ id: quizQuestions.id }).from(quizQuestions)
+        .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+        .where(sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${decks.userId} = ${userId}`)
+        .all();
+
+      if (owned.length !== uniqueIds.length) {
+        return { content: [{ type: "text" as const, text: "One or more questions not found or not owned by you" }], isError: true };
+      }
+
+      if (!confirm) {
+        const quizResultCount = db.get<{ count: number }>(
+          sql`SELECT COUNT(*) as count FROM quiz_result WHERE question_id IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`
+        );
+        const chatConversationCount = db.get<{ count: number }>(
+          sql`SELECT COUNT(*) as count FROM chat_conversation WHERE question_id IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`
+        );
+        const questionOptionCount = db.get<{ count: number }>(
+          sql`SELECT COUNT(*) as count FROM question_option WHERE question_id IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`
+        );
+        const cardFlagCount = db.get<{ count: number }>(
+          sql`SELECT COUNT(*) as count FROM card_flag WHERE question_id IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`
+        );
+
+        const preview = {
+          message: "Pass confirm=true to permanently delete these questions.",
+          questionCount: uniqueIds.length,
+          quizResults: quizResultCount?.count ?? 0,
+          chatConversations: chatConversationCount?.count ?? 0,
+          questionOptions: questionOptionCount?.count ?? 0,
+          cardFlags: cardFlagCount?.count ?? 0,
+        };
+
+        return { content: [{ type: "text" as const, text: JSON.stringify(preview, null, 2) }] };
+      }
+
+      const deleted = writeTransaction(db, () =>
+        db.delete(quizQuestions).where(
+          sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`
+        ).returning().all()
+      );
+
+      if (deleted.length !== uniqueIds.length) {
+        return { content: [{ type: "text" as const, text: "Delete count mismatch — some questions may not have been deleted" }], isError: true };
+      }
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, count: deleted.length }, null, 2) }] };
     }
   );
 }
