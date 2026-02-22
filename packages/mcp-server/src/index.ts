@@ -17,6 +17,7 @@ import { registerLearningMaterialTools } from "./tools/learning-materials.js";
 import { registerResources } from "./resources/learning-content-guide.js";
 import { registerMaterialTools } from "./tools/materials.js";
 import { registerQuizEntityTools } from "./tools/quizzes.js";
+import { registerDependencyTools } from "./tools/dependencies.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
@@ -47,6 +48,7 @@ function createMcpServer(userId: number) {
   registerResources(server);
   registerMaterialTools(server, db, userId);
   registerQuizEntityTools(server, db, userId);
+  registerDependencyTools(server, db, userId);
 
   return server;
 }
