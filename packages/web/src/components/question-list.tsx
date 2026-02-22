@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2 } from "lucide-react";
 import { deleteQuizQuestion } from "@/app/actions/quiz";
 import { RichContent } from "@/components/rich-content";
+import { LearningMaterials } from "@/components/learning-materials";
 import { useState } from "react";
 
 interface QuestionOption {
@@ -20,6 +21,7 @@ interface QuizQuestion {
   type: string;
   options: QuestionOption[];
   correctAnswer?: string | null;
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface QuestionListProps {
@@ -104,6 +106,11 @@ export function QuestionList({ questions, deckId }: QuestionListProps) {
                     })()}
                   </div>
                 )}
+                <LearningMaterials
+                  materials={question.learningMaterials}
+                  questionId={question.id}
+                  editable
+                />
               </div>
               <Button
                 variant="ghost"

@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { deleteFlashcard } from "@/app/actions/flashcards";
 import { RichContent } from "@/components/rich-content";
+import { LearningMaterials } from "@/components/learning-materials";
 import { useState } from "react";
 
 interface Flashcard {
   id: number;
   front: string;
   back: string;
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface FlashcardListProps {
@@ -57,6 +59,11 @@ export function FlashcardList({ flashcards, deckId }: FlashcardListProps) {
                   <div className="text-xs font-semibold text-muted-foreground mb-1">BACK</div>
                   <div className="text-sm"><RichContent content={card.back} /></div>
                 </div>
+                <LearningMaterials
+                  materials={card.learningMaterials}
+                  flashcardId={card.id}
+                  editable
+                />
               </div>
               <Button
                 variant="ghost"
