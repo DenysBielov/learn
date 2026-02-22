@@ -85,7 +85,7 @@ export function TagPopover(props: TagPopoverCombinedProps) {
   );
 }
 
-function TagPopoverInner(props: TagPopoverCombinedProps & { onClose: () => void }) {
+export function TagPopoverInner(props: TagPopoverCombinedProps & { onClose?: () => void }) {
   const [search, setSearch] = useState("");
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
