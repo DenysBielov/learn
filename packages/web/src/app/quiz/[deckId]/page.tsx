@@ -1,14 +1,17 @@
 import { getQuizQuestions, getNewQuizQuestions, getRevisionQuizQuestions } from "@/app/actions/quiz";
 import { getDeck } from "@/app/actions/decks";
+import { getTags } from "@/app/actions/tags";
 import { QuizPlayer } from "@/components/quiz-player";
 import { DeckQuizModePicker } from "@/components/deck-quiz-mode-picker";
+import { TagBadge } from "@/components/tag-badge";
+import { parseTagIdsFromUrl } from "@/lib/tags";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface QuizPageProps {
   params: Promise<{ deckId: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; tags?: string }>;
 }
 
 function shuffle<T>(array: T[]): T[] {
@@ -22,8 +25,9 @@ function shuffle<T>(array: T[]): T[] {
 
 export default async function QuizPage({ params, searchParams }: QuizPageProps) {
   const { deckId: deckIdParam } = await params;
-  const { mode } = await searchParams;
+  const { mode, tags: tagsParam } = await searchParams;
   const deckId = Number(deckIdParam);
+  const tagIds = parseTagIdsFromUrl(tagsParam);
 
   const deck = await getDeck(deckId);
 
@@ -54,21 +58,34 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
     );
   }
 
+  const tagIdsOrUndefined = tagIds.length > 0 ? tagIds : undefined;
   let questions;
   if (mode === "new") {
-    questions = await getNewQuizQuestions(deckId);
+    questions = await getNewQuizQuestions(deckId, tagIdsOrUndefined);
   } else if (mode === "revision") {
-    questions = await getRevisionQuizQuestions(deckId);
+    questions = await getRevisionQuizQuestions(deckId, tagIdsOrUndefined);
   } else {
-    questions = await getQuizQuestions(deckId);
+    questions = await getQuizQuestions(deckId, tagIdsOrUndefined);
   }
 
+  // Fetch active tag names for display
+  let activeFilterTags: { id: number; name: string; color: string | null }[] = [];
+  if (tagIds.length > 0) {
+    const allTags = await getTags();
+    const tagIdSet = new Set(tagIds);
+    activeFilterTags = allTags.filter((t) => tagIdSet.has(t.id));
+  }
+
+  const hasFilter = tagIds.length > 0;
+
   if (questions.length === 0) {
-    const emptyMessage = mode === "new"
-      ? "All questions in this deck have been answered at least once."
-      : mode === "revision"
-        ? "No questions need revision yet. Answer some questions first."
-        : "This deck doesn't have any quiz questions yet.";
+    const emptyMessage = hasFilter
+      ? "No questions match the selected tags."
+      : mode === "new"
+        ? "All questions in this deck have been answered at least once."
+        : mode === "revision"
+          ? "No questions need revision yet. Answer some questions first."
+          : "This deck doesn't have any quiz questions yet.";
 
     return (
       <div className="container mx-auto max-w-2xl py-8">
@@ -76,9 +93,21 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
           <CardHeader>
             <CardTitle>No questions available</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">{emptyMessage}</p>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">{emptyMessage}</p>
+            {hasFilter && activeFilterTags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {activeFilterTags.map((tag) => (
+                  <TagBadge key={tag.id} tag={tag} />
+                ))}
+              </div>
+            )}
             <div className="flex gap-3">
+              {hasFilter && (
+                <Link href={`/quiz/${deckId}?mode=${mode}`}>
+                  <Button variant="outline">Clear Filters</Button>
+                </Link>
+              )}
               <Link href={`/quiz/${deckId}`}>
                 <Button variant="outline">Choose Another Mode</Button>
               </Link>
@@ -100,6 +129,7 @@ export default async function QuizPage({ params, searchParams }: QuizPageProps) 
       deckId={deckId}
       deckName={deck.name}
       questions={finalQuestions}
+      activeFilterTags={activeFilterTags}
     />
   );
 }

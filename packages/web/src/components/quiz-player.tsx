@@ -9,6 +9,7 @@ import { RichContent } from "@/components/rich-content";
 import {
   startStudySession,
   startCourseStudySession,
+  startQuizStudySession,
   completeStudySession,
 } from "@/app/actions/flashcards";
 import { submitQuizAnswer } from "@/app/actions/quiz";
@@ -25,6 +26,7 @@ import { MultiSelect } from "@/components/question-types/multi-select";
 import { CodeEval } from "@/components/question-types/code-eval";
 import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen, ChevronLeft } from "lucide-react";
+import { TagBadge } from "@/components/tag-badge";
 import { CompletionNotes } from "@/components/completion-notes";
 
 interface QuestionOption {
@@ -44,11 +46,19 @@ interface Question {
   options: QuestionOption[];
 }
 
+interface ActiveFilterTag {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 interface QuizPlayerProps {
+  quizId?: number;
   deckId: number;
   deckName: string;
   questions: Question[];
   courseId?: number;
+  activeFilterTags?: ActiveFilterTag[];
 }
 
 interface AnswerResult {
@@ -56,7 +66,7 @@ interface AnswerResult {
   userAnswer: string;
 }
 
-export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayerProps) {
+export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, activeFilterTags }: QuizPlayerProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [sessionNotes, setSessionNotes] = useState<string>("");
@@ -98,14 +108,19 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
   // Initialize quiz session on mount
   useEffect(() => {
     const initSession = async () => {
-      const session = courseId
-        ? await startCourseStudySession(courseId, "quiz", "default")
-        : await startStudySession(deckId, "quiz");
+      let session;
+      if (quizId) {
+        session = await startQuizStudySession(quizId);
+      } else if (courseId) {
+        session = await startCourseStudySession(courseId, "quiz", "default");
+      } else {
+        session = await startStudySession(deckId, "quiz");
+      }
       setSessionId(session.id);
       setSessionNotes(session.notes ?? "");
     };
     initSession();
-  }, [deckId, courseId]);
+  }, [quizId, deckId, courseId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -239,8 +254,8 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
           {sessionId && <CompletionNotes sessionId={sessionId} />}
 
           <div className="flex gap-3">
-            <Button onClick={() => router.push(courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
-              {courseId ? "Back to Course" : "Back to Deck"}
+            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
+              {quizId ? "Back to Quiz" : courseId ? "Back to Course" : "Back to Deck"}
             </Button>
             <Button variant="outline" onClick={() => router.push("/")}>
               Back to Home
@@ -276,6 +291,13 @@ export function QuizPlayer({ deckId, deckName, questions, courseId }: QuizPlayer
             <span className="text-muted-foreground">
               Question {currentIndex + 1} of {questions.length}
             </span>
+            {activeFilterTags && activeFilterTags.length > 0 && (
+              <div className="flex gap-1 ml-2">
+                {activeFilterTags.map((tag) => (
+                  <TagBadge key={tag.id} tag={tag} />
+                ))}
+              </div>
+            )}
           </div>
           <span className="text-muted-foreground">{deckName}</span>
         </div>
