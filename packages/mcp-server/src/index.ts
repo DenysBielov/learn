@@ -13,6 +13,7 @@ import { registerSearchTools } from "./tools/search.js";
 import { registerCourseTools } from "./tools/courses.js";
 import { registerFlagTools } from "./tools/flags.js";
 import { registerImageTools } from "./tools/images.js";
+import { registerLearningMaterialTools } from "./tools/learning-materials.js";
 import { registerResources } from "./resources/learning-content-guide.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -40,6 +41,7 @@ function createMcpServer(userId: number) {
   registerCourseTools(server, db, userId);
   registerFlagTools(server, db, userId);
   registerImageTools(server, userId);
+  registerLearningMaterialTools(server, db, userId);
   registerResources(server);
 
   return server;
