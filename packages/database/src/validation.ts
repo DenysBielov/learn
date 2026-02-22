@@ -214,3 +214,135 @@ export const searchSchema = z.object({
   query: z.string().min(1).max(200),
   deckId: z.number().int().positive().optional(),
 });
+
+// --- Material ---
+export const createMaterialSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().max(100_000).optional(),
+  externalUrl: z.string().max(2000).optional(),
+}).refine(
+  data => data.content || data.externalUrl,
+  "Material must have content or an external URL"
+);
+
+export const updateMaterialSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  content: z.string().max(100_000).optional(),
+  externalUrl: z.string().max(2000).optional(),
+});
+
+// --- Standalone Quiz ---
+export const createQuizSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(2000).default(""),
+});
+
+export const updateQuizSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
+});
+
+// --- Quiz-based question schemas (quizId instead of deckId) ---
+const baseQuizQuestionForQuizSchema = z.object({
+  quizId: z.number().int().positive(),
+  question: z.string().min(1).max(MAX_QUESTION_TEXT),
+  explanation: z.string().max(MAX_EXPLANATION).default(""),
+});
+
+export const createQuizQuestionForQuizSchema = z.discriminatedUnion("type", [
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("multiple_choice"),
+    options: z.array(questionOptionSchema).min(2).max(MAX_OPTIONS)
+      .refine(opts => opts.some(o => o.isCorrect), "At least one option must be correct"),
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("true_false"),
+    options: z.array(questionOptionSchema).length(2)
+      .refine(opts => opts.filter(o => o.isCorrect).length === 1, "Exactly one option must be correct"),
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("free_text"),
+    correctAnswer: freeTextAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("matching"),
+    correctAnswer: matchingAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("ordering"),
+    correctAnswer: orderingAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("open_ended"),
+    correctAnswer: z.object({
+      referenceAnswer: z.string().max(MAX_QUESTION_TEXT),
+    }),
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("cloze"),
+    correctAnswer: clozeAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("multi_select"),
+    options: z.array(questionOptionSchema).min(2).max(MAX_OPTIONS)
+      .refine(opts => opts.some(o => o.isCorrect), "At least one option must be correct")
+      .refine(opts => opts.some(o => !o.isCorrect), "At least one option must be incorrect"),
+  }),
+  baseQuizQuestionForQuizSchema.extend({
+    type: z.literal("code_eval"),
+    correctAnswer: codeEvalAnswerSchema,
+  }),
+]);
+
+export type CreateQuizQuestionForQuiz = z.infer<typeof createQuizQuestionForQuizSchema>;
+
+// --- Batch quiz creation for standalone quizzes ---
+const batchQuizQuestionForQuizSchema = z.discriminatedUnion("type", [
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("multiple_choice"),
+    options: z.array(questionOptionSchema).min(2).max(MAX_OPTIONS)
+      .refine(opts => opts.some(o => o.isCorrect), "At least one option must be correct"),
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("true_false"),
+    options: z.array(questionOptionSchema).length(2)
+      .refine(opts => opts.filter(o => o.isCorrect).length === 1, "Exactly one option must be correct"),
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("free_text"),
+    correctAnswer: freeTextAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("matching"),
+    correctAnswer: matchingAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("ordering"),
+    correctAnswer: orderingAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("open_ended"),
+    correctAnswer: z.object({
+      referenceAnswer: z.string().max(MAX_QUESTION_TEXT),
+    }),
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("cloze"),
+    correctAnswer: clozeAnswerSchema,
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("multi_select"),
+    options: z.array(questionOptionSchema).min(2).max(MAX_OPTIONS)
+      .refine(opts => opts.some(o => o.isCorrect), "At least one option must be correct")
+      .refine(opts => opts.some(o => !o.isCorrect), "At least one option must be incorrect"),
+  }),
+  baseQuizQuestionForQuizSchema.omit({ quizId: true }).extend({
+    type: z.literal("code_eval"),
+    correctAnswer: codeEvalAnswerSchema,
+  }),
+]);
+
+export const createQuizBatchForQuizSchema = z.object({
+  quizId: z.number().int().positive(),
+  questions: z.array(batchQuizQuestionForQuizSchema).min(1).max(50),
+});

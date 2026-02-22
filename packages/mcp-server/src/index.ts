@@ -14,6 +14,8 @@ import { registerCourseTools } from "./tools/courses.js";
 import { registerFlagTools } from "./tools/flags.js";
 import { registerImageTools } from "./tools/images.js";
 import { registerResources } from "./resources/learning-content-guide.js";
+import { registerMaterialTools } from "./tools/materials.js";
+import { registerQuizEntityTools } from "./tools/quizzes.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
@@ -41,6 +43,8 @@ function createMcpServer(userId: number) {
   registerFlagTools(server, db, userId);
   registerImageTools(server, userId);
   registerResources(server);
+  registerMaterialTools(server, db, userId);
+  registerQuizEntityTools(server, db, userId);
 
   return server;
 }

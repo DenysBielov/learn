@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { quizQuestions, questionOptions, quizResults, decks, studySessions } from "@flashcards/database/schema";
+import { quizQuestions, questionOptions, quizResults, decks, studySessions, quizzes, courseSteps } from "@flashcards/database/schema";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
 import { and, eq, sql } from "drizzle-orm";
-import { getDescendantDeckIds } from "@flashcards/database/courses";
+import { getDescendantDeckIds, getDescendantQuizIds } from "@flashcards/database/courses";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 
@@ -81,10 +81,15 @@ export async function submitQuizAnswer(
   const { userId } = await requireAuth();
   const db = getDb();
 
-  // Verify question belongs to user's deck
-  const question = db.select({ id: quizQuestions.id }).from(quizQuestions)
-    .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-    .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+  // Try authorization via quiz first, then via deck
+  let question = db.select({ id: quizQuestions.id }).from(quizQuestions)
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId))).get();
+  if (!question) {
+    question = db.select({ id: quizQuestions.id }).from(quizQuestions)
+      .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+      .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+  }
   if (!question) throw new Error("Question not found");
 
   // Verify session belongs to user
@@ -171,6 +176,66 @@ export async function getRevisionQuizQuestions(deckId: number, tagIds?: number[]
   return questions.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
 }
 
+export async function getQuizQuestionsForQuiz(quizId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const quiz = db.select({ id: quizzes.id }).from(quizzes)
+    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
+  if (!quiz) return [];
+
+  return db.query.quizQuestions.findMany({
+    where: eq(quizQuestions.quizId, quizId),
+    with: { options: true },
+  });
+}
+
+export async function getNewQuizQuestionsForQuiz(quizId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const quiz = db.select({ id: quizzes.id }).from(quizzes)
+    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
+  if (!quiz) return [];
+
+  return db.query.quizQuestions.findMany({
+    where: sql`${quizQuestions.quizId} = ${quizId} AND ${quizQuestions.id} NOT IN (SELECT DISTINCT question_id FROM quiz_result)`,
+    with: { options: true },
+  });
+}
+
+export async function getRevisionQuizQuestionsForQuiz(quizId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const quiz = db.select({ id: quizzes.id }).from(quizzes)
+    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
+  if (!quiz) return [];
+
+  const questionsWithRates = db.all<{ id: number; error_rate: number }>(sql`
+    SELECT q.id,
+      CAST(SUM(CASE WHEN qr.correct = 0 THEN 1 ELSE 0 END) AS REAL) /
+      COUNT(qr.id) AS error_rate
+    FROM quiz_question q
+    INNER JOIN quiz_result qr ON qr.question_id = q.id
+    WHERE q.quiz_id = ${quizId}
+    GROUP BY q.id
+    HAVING error_rate > 0
+    ORDER BY error_rate DESC
+  `);
+
+  if (questionsWithRates.length === 0) return [];
+
+  const orderedIds = questionsWithRates.map(q => q.id);
+  const questions = db.query.quizQuestions.findMany({
+    where: sql`id IN (${sql.raw(orderedIds.join(","))})`,
+    with: { options: true },
+  }).sync();
+
+  const idOrder = new Map(orderedIds.map((id, i) => [id, i]));
+  return questions.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+}
+
 export async function deleteQuizQuestion(id: number, deckId: number) {
   const { userId } = await requireAuth();
   const db = getDb();
@@ -191,28 +256,35 @@ export async function getCourseQuizQuestions(
 ) {
   const { userId } = await requireAuth();
   const db = getDb();
+
+  // Get questions from both deck path and quiz path
   const deckIds = getDescendantDeckIds(db, courseId, userId);
-  if (deckIds.length === 0) return [];
+  const quizIds = getDescendantQuizIds(db, courseId, userId);
+
+  if (deckIds.length === 0 && quizIds.length === 0) return [];
+
+  // Build combined WHERE clause
+  const conditions: string[] = [];
+  if (deckIds.length > 0) conditions.push(`deck_id IN (${deckIds.join(",")})`);
+  if (quizIds.length > 0) conditions.push(`quiz_id IN (${quizIds.join(",")})`);
+  const whereRaw = conditions.join(" OR ");
 
   if (subMode === "random") {
-    // Fetch all using Drizzle query builder, shuffle in app code
     return db.query.quizQuestions.findMany({
-      where: sql`deck_id IN (${sql.raw(deckIds.join(","))})`,
+      where: sql.raw(whereRaw),
       with: { options: true },
     });
   }
 
   if (subMode === "sequential") {
-    // Fetch with deck position ordering
     return db.query.quizQuestions.findMany({
-      where: sql`deck_id IN (${sql.raw(deckIds.join(","))})`,
+      where: sql.raw(whereRaw),
       with: { options: true },
-      orderBy: (q, { asc }) => [asc(q.deckId), asc(q.id)],
+      orderBy: (q, { asc }) => [asc(q.id)],
     });
   }
 
   if (subMode === "weakest_first") {
-    // Get questions with error rates, then fetch options
     const questionsWithRates = db.all<{ id: number; error_rate: number }>(sql`
       SELECT q.id,
         COALESCE(
@@ -222,7 +294,7 @@ export async function getCourseQuizQuestions(
         ) AS error_rate
       FROM quiz_question q
       LEFT JOIN quiz_result qr ON qr.question_id = q.id
-      WHERE q.deck_id IN (${sql.raw(deckIds.join(","))})
+      WHERE ${sql.raw(whereRaw)}
       GROUP BY q.id
       ORDER BY error_rate DESC
     `);
@@ -235,7 +307,6 @@ export async function getCourseQuizQuestions(
       with: { options: true },
     }).sync();
 
-    // Re-sort by original error_rate ordering
     const idOrder = new Map(orderedIds.map((id, i) => [id, i]));
     return questions.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
   }

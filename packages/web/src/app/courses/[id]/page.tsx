@@ -1,4 +1,4 @@
-import { getCourse, getCourseBreadcrumbs } from "@/app/actions/courses";
+import { getCourse, getCourseBreadcrumbs, getCourseJourney } from "@/app/actions/courses";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CourseCard } from "@/components/course-card";
 import { DeckCard } from "@/components/deck-card";
@@ -6,6 +6,8 @@ import { CreateCourseDialog } from "@/components/create-course-dialog";
 import { AddDeckToCourseDialog } from "@/components/add-deck-to-course-dialog";
 import { EditCourseDialog } from "@/components/edit-course-dialog";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
+import { LearningJourney } from "@/components/learning-journey";
+import { AddStepDialog } from "@/components/add-step-dialog";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -21,12 +23,17 @@ export default async function CoursePage({ params }: CoursePageProps) {
   const courseId = parseInt(id, 10);
   if (isNaN(courseId)) notFound();
 
-  const [course, breadcrumbs] = await Promise.all([
+  const [course, breadcrumbs, journey] = await Promise.all([
     getCourse(courseId),
     getCourseBreadcrumbs(courseId),
+    getCourseJourney(courseId).catch(() => []),
   ]);
 
   if (!course) notFound();
+
+  const completedStepIds = new Set(
+    journey.filter(s => s.isCompleted).map(s => s.id)
+  );
 
   return (
     <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
@@ -59,7 +66,16 @@ export default async function CoursePage({ params }: CoursePageProps) {
         </Button>
         <CreateCourseDialog parentId={courseId} triggerLabel="Add Sub-Course" />
         <AddDeckToCourseDialog courseId={courseId} />
+        <AddStepDialog courseId={courseId} />
       </div>
+
+      {course.steps.length > 0 && (
+        <LearningJourney
+          courseId={courseId}
+          steps={course.steps}
+          completedStepIds={completedStepIds}
+        />
+      )}
 
       {course.children.length > 0 && (() => {
         const activeChildren = course.children.filter(c => c.isActive);
@@ -132,10 +148,10 @@ export default async function CoursePage({ params }: CoursePageProps) {
 
       <SessionHistory courseId={courseId} />
 
-      {course.children.length === 0 && course.decks.length === 0 && (
+      {course.children.length === 0 && course.decks.length === 0 && course.steps.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground mb-4">
-            This course is empty. Add sub-courses or link existing decks to get started.
+            This course is empty. Add sub-courses, link existing decks, or add learning steps to get started.
           </p>
         </div>
       )}

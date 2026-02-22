@@ -17,7 +17,8 @@
     "studio": "drizzle-kit studio",
     "test": "vitest run",
     "add-user": "tsx src/add-user.ts",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "migrate-journey": "tsx src/migrate-learning-journey.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

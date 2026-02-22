@@ -53,6 +53,31 @@ export const courseDecks = sqliteTable("course_deck", {
   index("idx_course_deck_deck").on(table.deckId),
 ]);
 
+// --- Material ---
+export const materials = sqliteTable("material", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  content: text("content"),
+  externalUrl: text("external_url"),
+  userId: integer("user_id").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_material_user").on(table.userId),
+]);
+
+// --- Quiz (standalone) ---
+export const quizzes = sqliteTable("quiz", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  userId: integer("user_id").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_quiz_user").on(table.userId),
+]);
+
 // --- Tag ---
 export const tags = sqliteTable("tag", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -61,6 +86,31 @@ export const tags = sqliteTable("tag", {
   color: text("color").default("#6366f1"),
 }, (table) => [
   uniqueIndex("idx_tag_name_user").on(table.name, table.userId),
+]);
+
+// --- CourseStep ---
+export const courseSteps = sqliteTable("course_step", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  courseId: integer("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  stepType: text("step_type", { enum: ["material", "quiz"] }).notNull(),
+  materialId: integer("material_id").references(() => materials.id, { onDelete: "cascade" }),
+  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "cascade" }),
+}, (table) => [
+  index("idx_course_step_course_pos").on(table.courseId, table.position),
+  uniqueIndex("idx_course_step_material").on(table.materialId),
+  uniqueIndex("idx_course_step_quiz").on(table.quizId),
+]);
+
+// --- StepProgress ---
+export const stepProgress = sqliteTable("step_progress", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  courseStepId: integer("course_step_id").notNull().references(() => courseSteps.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  isCompleted: integer("is_completed", { mode: "boolean" }).notNull().default(false),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+}, (table) => [
+  uniqueIndex("idx_step_progress_step_user").on(table.courseStepId, table.userId),
 ]);
 
 // --- Flashcard ---
@@ -93,6 +143,7 @@ export const flashcardTags = sqliteTable("flashcard_tag", {
 export const quizQuestions = sqliteTable("quiz_question", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   deckId: integer("deck_id").notNull().references(() => decks.id, { onDelete: "cascade" }),
+  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "cascade" }),
   type: text("type", { enum: ["multiple_choice", "true_false", "free_text", "matching", "ordering", "open_ended", "cloze", "multi_select", "code_eval"] }).notNull(),
   question: text("question").notNull(),
   explanation: text("explanation").default(""),
@@ -100,6 +151,7 @@ export const quizQuestions = sqliteTable("quiz_question", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_question_deck").on(table.deckId),
+  index("idx_question_quiz").on(table.quizId),
   index("idx_question_type").on(table.type),
 ]);
 
@@ -129,6 +181,7 @@ export const studySessions = sqliteTable("study_session", {
   userId: integer("user_id").notNull().references(() => users.id).default(1),
   deckId: integer("deck_id").references(() => decks.id, { onDelete: "cascade" }),
   courseId: integer("course_id").references(() => courses.id, { onDelete: "cascade" }),
+  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "set null" }),
   mode: text("mode", { enum: ["flashcard", "quiz"] }).notNull(),
   subMode: text("sub_mode"),
   startedAt: integer("started_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
@@ -137,6 +190,7 @@ export const studySessions = sqliteTable("study_session", {
 }, (table) => [
   index("idx_study_session_deck").on(table.deckId),
   index("idx_study_session_course").on(table.courseId),
+  index("idx_study_session_quiz").on(table.quizId),
   index("idx_study_session_started_at").on(table.startedAt),
   index("idx_study_session_user").on(table.userId),
 ]);
@@ -238,8 +292,33 @@ export const flashcardRelations = relations(flashcards, ({ one, many }) => ({
   flags: many(cardFlags),
 }));
 
+export const materialRelations = relations(materials, ({ one, many }) => ({
+  user: one(users, { fields: [materials.userId], references: [users.id] }),
+  courseStep: many(courseSteps),
+}));
+
+export const quizRelations = relations(quizzes, ({ one, many }) => ({
+  user: one(users, { fields: [quizzes.userId], references: [users.id] }),
+  questions: many(quizQuestions),
+  courseStep: many(courseSteps),
+  studySessions: many(studySessions),
+}));
+
+export const courseStepRelations = relations(courseSteps, ({ one, many }) => ({
+  course: one(courses, { fields: [courseSteps.courseId], references: [courses.id] }),
+  material: one(materials, { fields: [courseSteps.materialId], references: [materials.id] }),
+  quiz: one(quizzes, { fields: [courseSteps.quizId], references: [quizzes.id] }),
+  progress: many(stepProgress),
+}));
+
+export const stepProgressRelations = relations(stepProgress, ({ one }) => ({
+  courseStep: one(courseSteps, { fields: [stepProgress.courseStepId], references: [courseSteps.id] }),
+  user: one(users, { fields: [stepProgress.userId], references: [users.id] }),
+}));
+
 export const quizQuestionRelations = relations(quizQuestions, ({ one, many }) => ({
   deck: one(decks, { fields: [quizQuestions.deckId], references: [decks.id] }),
+  quiz: one(quizzes, { fields: [quizQuestions.quizId], references: [quizzes.id] }),
   options: many(questionOptions),
   tags: many(questionTags),
   results: many(quizResults),
@@ -265,6 +344,7 @@ export const courseRelations = relations(courses, ({ one, many }) => ({
   parent: one(courses, { fields: [courses.parentId], references: [courses.id], relationName: "courseParent" }),
   children: many(courses, { relationName: "courseParent" }),
   courseDecks: many(courseDecks),
+  courseSteps: many(courseSteps),
   studySessions: many(studySessions),
 }));
 
@@ -277,6 +357,7 @@ export const studySessionRelations = relations(studySessions, ({ one, many }) =>
   user: one(users, { fields: [studySessions.userId], references: [users.id] }),
   deck: one(decks, { fields: [studySessions.deckId], references: [decks.id] }),
   course: one(courses, { fields: [studySessions.courseId], references: [courses.id] }),
+  quiz: one(quizzes, { fields: [studySessions.quizId], references: [quizzes.id] }),
   flashcardResults: many(flashcardResults),
   quizResults: many(quizResults),
 }));
@@ -316,6 +397,8 @@ export const tagRelations = relations(tags, ({ one }) => ({
 export const userRelations = relations(users, ({ many }) => ({
   decks: many(decks),
   courses: many(courses),
+  materials: many(materials),
+  quizzes: many(quizzes),
   tags: many(tags),
   studySessions: many(studySessions),
   chatConversations: many(chatConversations),

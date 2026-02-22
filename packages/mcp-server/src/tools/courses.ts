@@ -5,6 +5,10 @@ import {
   type AppDatabase,
   courses,
   courseDecks,
+  courseSteps,
+  stepProgress,
+  materials,
+  quizzes,
   decks,
   writeTransaction,
 } from "@flashcards/database";
@@ -14,6 +18,7 @@ import {
   getDescendantCourseIds,
   getNextPosition,
   getNextDeckPosition,
+  getNextStepPosition,
 } from "@flashcards/database/courses";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -464,6 +469,154 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
       );
 
       return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
+    }
+  );
+
+  // ── 9. get_course_journey ─────────────────────────────────────────────
+  server.tool(
+    "get_course_journey",
+    "Get the ordered learning journey steps for a course with completion status",
+    {
+      courseId: z.number().int().positive(),
+    },
+    async ({ courseId }) => {
+      const course = db.select({ id: courses.id }).from(courses)
+        .where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
+      if (!course) {
+        return { content: [{ type: "text" as const, text: `Course ${courseId} not found` }], isError: true };
+      }
+
+      const steps = db.all<{
+        id: number;
+        position: number;
+        step_type: string;
+        material_id: number | null;
+        quiz_id: number | null;
+        title: string;
+        is_completed: number | null;
+        completed_at: number | null;
+      }>(sql`
+        SELECT
+          cs.id,
+          cs.position,
+          cs.step_type,
+          cs.material_id,
+          cs.quiz_id,
+          COALESCE(m.title, q.title) AS title,
+          sp.is_completed,
+          sp.completed_at
+        FROM course_step cs
+        LEFT JOIN material m ON cs.material_id = m.id
+        LEFT JOIN quiz q ON cs.quiz_id = q.id
+        LEFT JOIN step_progress sp ON sp.course_step_id = cs.id AND sp.user_id = ${userId}
+        WHERE cs.course_id = ${courseId}
+        ORDER BY cs.position
+      `);
+
+      const result = steps.map(s => ({
+        id: s.id,
+        position: s.position,
+        stepType: s.step_type,
+        materialId: s.material_id,
+        quizId: s.quiz_id,
+        title: s.title,
+        isCompleted: !!s.is_completed,
+        completedAt: s.completed_at ? new Date(s.completed_at * 1000).toISOString() : null,
+      }));
+
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // ── 10. reorder_course_steps ──────────────────────────────────────────
+  server.tool(
+    "reorder_course_steps",
+    "Reorder learning journey steps within a course",
+    {
+      courseId: z.number().int().positive(),
+      stepIds: z.array(z.number().int().positive()).min(1),
+    },
+    async ({ courseId, stepIds }) => {
+      const course = db.select({ id: courses.id }).from(courses)
+        .where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
+      if (!course) {
+        return { content: [{ type: "text" as const, text: `Course ${courseId} not found` }], isError: true };
+      }
+
+      const existingSteps = db.select({ id: courseSteps.id })
+        .from(courseSteps)
+        .where(eq(courseSteps.courseId, courseId))
+        .all();
+
+      if (existingSteps.length !== stepIds.length) {
+        return { content: [{ type: "text" as const, text: "Step count mismatch" }], isError: true };
+      }
+
+      const existingIds = new Set(existingSteps.map(s => s.id));
+      for (const stepId of stepIds) {
+        if (!existingIds.has(stepId)) {
+          return { content: [{ type: "text" as const, text: `Step ${stepId} does not belong to course ${courseId}` }], isError: true };
+        }
+      }
+
+      writeTransaction(db, () => {
+        for (let i = 0; i < stepIds.length; i++) {
+          db.update(courseSteps)
+            .set({ position: i })
+            .where(eq(courseSteps.id, stepIds[i]))
+            .run();
+        }
+      });
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ reordered: true, courseId, stepCount: stepIds.length }) }] };
+    }
+  );
+
+  // ── 11. toggle_step_complete ──────────────────────────────────────────
+  server.tool(
+    "toggle_step_complete",
+    "Mark a learning journey step as complete or incomplete",
+    {
+      stepId: z.number().int().positive(),
+      completed: z.boolean(),
+    },
+    async ({ stepId, completed }) => {
+      const step = db.select({ id: courseSteps.id })
+        .from(courseSteps)
+        .innerJoin(courses, eq(courseSteps.courseId, courses.id))
+        .where(and(eq(courseSteps.id, stepId), eq(courses.userId, userId)))
+        .get();
+      if (!step) {
+        return { content: [{ type: "text" as const, text: `Step ${stepId} not found` }], isError: true };
+      }
+
+      writeTransaction(db, () => {
+        const existing = db.select({ id: stepProgress.id })
+          .from(stepProgress)
+          .where(and(
+            eq(stepProgress.courseStepId, stepId),
+            eq(stepProgress.userId, userId),
+          )).get();
+
+        if (existing) {
+          db.update(stepProgress)
+            .set({
+              isCompleted: completed,
+              completedAt: completed ? new Date() : null,
+            })
+            .where(eq(stepProgress.id, existing.id))
+            .run();
+        } else {
+          db.insert(stepProgress).values({
+            courseStepId: stepId,
+            userId,
+            isCompleted: completed,
+            completedAt: completed ? new Date() : null,
+          }).run();
+        }
+      });
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ stepId, completed }) }] };
     }
   );
 }

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import {
-  type AppDatabase, quizQuestions, questionOptions, decks,
+  type AppDatabase, quizQuestions, questionOptions, decks, quizzes,
   writeTransaction,
 } from "@flashcards/database";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
@@ -74,18 +74,20 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "list_questions",
-    "List quiz questions, filterable by deck, tag, or type",
+    "List quiz questions, filterable by deck, quiz, tag, or type",
     {
       deckId: z.number().int().positive().optional(),
+      quizId: z.number().int().positive().optional(),
       type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]).optional(),
       tagName: z.string().optional(),
     },
-    async ({ deckId, type, tagName }) => {
+    async ({ deckId, quizId, type, tagName }) => {
       const conditions = [
-        sql`${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`,
+        sql`(${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId}) OR ${quizQuestions.quizId} IN (SELECT id FROM quiz WHERE user_id = ${userId}))`,
       ];
 
       if (deckId) conditions.push(eq(quizQuestions.deckId, deckId));
+      if (quizId) conditions.push(eq(quizQuestions.quizId, quizId));
       if (type) conditions.push(eq(quizQuestions.type, type));
 
       const whereClause = and(...conditions);
@@ -108,10 +110,15 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
       explanation: z.string().max(5120).optional(),
     },
     async ({ questionId, question, explanation }) => {
-      // Verify question belongs to user via deck ownership
-      const existing = db.select({ id: quizQuestions.id }).from(quizQuestions)
-        .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-        .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+      // Verify question belongs to user via quiz or deck ownership
+      let existing = db.select({ id: quizQuestions.id }).from(quizQuestions)
+        .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+        .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId))).get();
+      if (!existing) {
+        existing = db.select({ id: quizQuestions.id }).from(quizQuestions)
+          .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+          .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+      }
       if (!existing) {
         return { content: [{ type: "text" as const, text: `Question ${questionId} not found` }], isError: true };
       }
@@ -144,8 +151,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
       // Verify all questions belong to user
       const owned = db.select({ id: quizQuestions.id }).from(quizQuestions)
-        .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-        .where(sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${decks.userId} = ${userId}`)
+        .where(sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND (${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId}) OR ${quizQuestions.quizId} IN (SELECT id FROM quiz WHERE user_id = ${userId}))`)
         .all();
 
       if (owned.length !== uniqueIds.length) {
@@ -180,7 +186,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
       const deleted = writeTransaction(db, () =>
         db.delete(quizQuestions).where(
-          sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`
+          sql`${quizQuestions.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND (${quizQuestions.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId}) OR ${quizQuestions.quizId} IN (SELECT id FROM quiz WHERE user_id = ${userId}))`
         ).returning().all()
       );
 

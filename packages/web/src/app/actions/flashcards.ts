@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { flashcards, flashcardResults, studySessions, decks, courses } from "@flashcards/database/schema";
+import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -181,12 +181,57 @@ export async function startStudySession(deckId: number, mode: "flashcard" | "qui
 export async function completeStudySession(sessionId: number) {
   const { userId } = await requireAuth();
   const db = getDb();
-  writeTransaction(db, () =>
+  writeTransaction(db, () => {
+    const session = db.select({
+      id: studySessions.id,
+      quizId: studySessions.quizId,
+    }).from(studySessions)
+      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
+      .get();
+    if (!session) throw new Error("Session not found");
+
     db.update(studySessions)
       .set({ completedAt: new Date() })
-      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
-      .run()
-  );
+      .where(eq(studySessions.id, sessionId))
+      .run();
+
+    // Auto-complete quiz step if this session is for a standalone quiz
+    if (session.quizId) {
+      const step = db.select({
+        stepId: courseSteps.id,
+      })
+        .from(courseSteps)
+        .innerJoin(courses, eq(courseSteps.courseId, courses.id))
+        .where(and(
+          eq(courseSteps.quizId, session.quizId),
+          eq(courses.userId, userId),
+        ))
+        .get();
+
+      if (step) {
+        const existing = db.select({ id: stepProgress.id })
+          .from(stepProgress)
+          .where(and(
+            eq(stepProgress.courseStepId, step.stepId),
+            eq(stepProgress.userId, userId),
+          )).get();
+
+        if (existing) {
+          db.update(stepProgress)
+            .set({ isCompleted: true, completedAt: new Date() })
+            .where(eq(stepProgress.id, existing.id))
+            .run();
+        } else {
+          db.insert(stepProgress).values({
+            courseStepId: step.stepId,
+            userId,
+            isCompleted: true,
+            completedAt: new Date(),
+          }).run();
+        }
+      }
+    }
+  });
 }
 
 export async function startCourseStudySession(
@@ -220,6 +265,36 @@ export async function startCourseStudySession(
       courseId,
       mode,
       subMode,
+      userId,
+    }).returning().all()
+  );
+  return session;
+}
+
+export async function startQuizStudySession(quizId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+  const quiz = db.select({ id: quizzes.id }).from(quizzes)
+    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
+  if (!quiz) throw new Error("Quiz not found");
+
+  // Resume an incomplete session if one exists
+  const existing = db.select().from(studySessions)
+    .where(and(
+      eq(studySessions.quizId, quizId),
+      eq(studySessions.userId, userId),
+      eq(studySessions.mode, "quiz"),
+      isNull(studySessions.completedAt),
+    ))
+    .orderBy(studySessions.startedAt)
+    .limit(1)
+    .get();
+  if (existing) return existing;
+
+  const [session] = writeTransaction(db, () =>
+    db.insert(studySessions).values({
+      quizId,
+      mode: "quiz",
       userId,
     }).returning().all()
   );

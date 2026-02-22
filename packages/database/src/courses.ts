@@ -227,3 +227,41 @@ export function getActiveCoursesDueCount(
   `);
   return result[0]?.dueCards ?? 0;
 }
+
+/**
+ * Get next position for a step within a course.
+ */
+export function getNextStepPosition(
+  db: AppDatabase,
+  courseId: number
+): number {
+  const result = db.all<{ maxPos: number | null }>(
+    sql`SELECT MAX(position) AS maxPos FROM course_step WHERE course_id = ${courseId}`
+  );
+  return (result[0]?.maxPos ?? -1) + 1;
+}
+
+/**
+ * Collect all quiz IDs from a course and all its descendants via course_step.
+ * Uses UNION ALL with depth limit (cycles prevented at write time).
+ */
+export function getDescendantQuizIds(
+  db: AppDatabase,
+  courseId: number,
+  userId: number
+): number[] {
+  const result = db.all<{ quiz_id: number }>(sql`
+    WITH RECURSIVE course_tree AS (
+      SELECT id, 1 AS depth FROM course WHERE id = ${courseId} AND user_id = ${userId}
+      UNION ALL
+      SELECT c.id, ct.depth + 1 FROM course c
+      JOIN course_tree ct ON c.parent_id = ct.id
+      WHERE ct.depth < 10
+    )
+    SELECT DISTINCT cs.quiz_id
+    FROM course_step cs
+    JOIN course_tree ct ON cs.course_id = ct.id
+    WHERE cs.quiz_id IS NOT NULL
+  `);
+  return result.map(r => r.quiz_id);
+}
