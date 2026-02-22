@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect, useCallback } from "react";
-import { Plus, Check, Minus, MoreHorizontal, X } from "lucide-react";
+import { Plus, Check, Minus, MoreHorizontal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerTrigger, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PRESET_COLORS, getContrastColor } from "@/lib/tags";
+import { PRESET_COLORS } from "@/lib/tags";
 import type { Tag } from "@/lib/tags";
 import {
   createTag,
