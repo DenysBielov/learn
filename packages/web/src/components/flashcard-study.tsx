@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { RichContent } from "@/components/rich-content";
+import { LearningMaterials } from "@/components/learning-materials";
 import { SessionPanel } from "@/components/session-panel";
 import { FlagButtons } from "@/components/flag-buttons";
 import {
@@ -31,6 +32,7 @@ interface Flashcard {
   repetitions: number;
   nextReviewAt: Date;
   createdAt: Date;
+  learningMaterials?: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface ActiveFilterTag {
@@ -361,6 +363,11 @@ export function FlashcardStudy({
                 <Badge variant="outline">Back</Badge>
               </div>
               <RichContent content={currentCard.back} className="text-base" />
+              {currentCard.learningMaterials && currentCard.learningMaterials.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <LearningMaterials materials={currentCard.learningMaterials} />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

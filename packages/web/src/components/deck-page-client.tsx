@@ -23,6 +23,7 @@ interface Flashcard {
   front: string;
   back: string;
   tags?: FlashcardTag[];
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface QuestionOption {
@@ -42,6 +43,7 @@ interface QuizQuestion {
   options: QuestionOption[];
   correctAnswer?: string | null;
   tags?: QuestionTag[];
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface DeckPageClientProps {

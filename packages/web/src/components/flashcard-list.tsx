@@ -8,6 +8,7 @@ import { deleteFlashcard } from "@/app/actions/flashcards";
 import { RichContent } from "@/components/rich-content";
 import { TagBadge } from "@/components/tag-badge";
 import { TagPopover } from "@/components/tag-popover";
+import { LearningMaterials } from "@/components/learning-materials";
 import { useState } from "react";
 import type { Tag } from "@/lib/tags";
 
@@ -20,6 +21,7 @@ interface Flashcard {
   front: string;
   back: string;
   tags?: FlashcardTag[];
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface FlashcardListProps {
@@ -104,6 +106,11 @@ export function FlashcardList({
                     </div>
                   )}
                 </div>
+                <LearningMaterials
+                  materials={card.learningMaterials}
+                  flashcardId={card.id}
+                  editable
+                />
                 <Button
                   variant="ghost"
                   size="icon"

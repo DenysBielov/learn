@@ -2,14 +2,35 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress } from "@flashcards/database/schema";
+import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { calculateSm2, type Sm2Rating } from "@/lib/sm2";
 import { requireAuth } from "@/lib/auth";
 import { getDescendantDeckIds } from "@flashcards/database/courses";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
+
+// SECURITY: Callers MUST pre-filter cards by userId (e.g., via deck ownership).
+// This helper trusts that the input cards already belong to the authenticated user.
+function attachLearningMaterials<T extends { id: number }>(
+  db: ReturnType<typeof getDb>,
+  cards: T[]
+): (T & { learningMaterials: typeof learningMaterials.$inferSelect[] })[] {
+  if (cards.length === 0) return [];
+  const ids = cards.map(c => c.id);
+  const materials = db.select().from(learningMaterials)
+    .where(inArray(learningMaterials.flashcardId, ids))
+    .orderBy(learningMaterials.position)
+    .all();
+  const byCardId = new Map<number, typeof materials>();
+  for (const m of materials) {
+    const arr = byCardId.get(m.flashcardId!) || [];
+    arr.push(m);
+    byCardId.set(m.flashcardId!, arr);
+  }
+  return cards.map(c => ({ ...c, learningMaterials: byCardId.get(c.id) || [] }));
+}
 
 export async function createFlashcard(formData: FormData) {
   const { userId } = await requireAuth();
@@ -70,14 +91,16 @@ export async function getDueFlashcards(deckId?: number, tagIds?: number[]) {
   )` : sql``;
 
   if (deckId) {
-    return db.select().from(flashcards)
+    const cards = db.select().from(flashcards)
       .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
       .all();
+    return attachLearningMaterials(db, cards);
   }
 
-  return db.select().from(flashcards)
+  const cards = db.select().from(flashcards)
     .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
     .all();
+  return attachLearningMaterials(db, cards);
 }
 
 export async function getAllFlashcards(deckId: number, tagIds?: number[]) {
@@ -94,9 +117,10 @@ export async function getAllFlashcards(deckId: number, tagIds?: number[]) {
     HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
   )` : sql``;
 
-  return db.select().from(flashcards)
+  const cards = db.select().from(flashcards)
     .where(sql`${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
     .all();
+  return attachLearningMaterials(db, cards);
 }
 
 export async function reviewFlashcard(
@@ -343,7 +367,7 @@ export async function getDueFlashcardsForActiveCourses(tagIds?: number[]) {
       HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
     )` : sql``;
 
-  return db.all<FlashcardRow>(sql`
+  const cards = db.all<FlashcardRow>(sql`
     WITH RECURSIVE active_tree AS (
       SELECT id, 1 AS depth FROM course WHERE is_active = 1 AND user_id = ${userId}
       UNION ALL
@@ -360,6 +384,7 @@ export async function getDueFlashcardsForActiveCourses(tagIds?: number[]) {
     WHERE f.next_review_at <= ${nowSeconds}
     ${tagFilter}
   `).map(mapFlashcardRow);
+  return attachLearningMaterials(db, cards);
 }
 
 export async function getCourseFlashcards(
@@ -375,32 +400,35 @@ export async function getCourseFlashcards(
   const now = Math.floor(Date.now() / 1000);
 
   if (subMode === "review_due") {
-    return db.all<FlashcardRow>(sql`
+    const cards = db.all<FlashcardRow>(sql`
       SELECT * FROM flashcard
       WHERE deck_id IN (${sql.raw(deckIdList)})
       AND next_review_at <= ${now}
     `).map(mapFlashcardRow);
+    return attachLearningMaterials(db, cards);
   }
 
   if (subMode === "sequential") {
-    return db.all<FlashcardRow>(sql`
+    const cards = db.all<FlashcardRow>(sql`
       SELECT f.* FROM flashcard f
       JOIN course_deck cd ON f.deck_id = cd.deck_id
       WHERE f.deck_id IN (${sql.raw(deckIdList)})
       AND f.next_review_at <= ${now}
       ORDER BY cd.position, f.id
     `).map(mapFlashcardRow);
+    return attachLearningMaterials(db, cards);
   }
 
   if (subMode === "random") {
-    return db.all<FlashcardRow>(sql`
+    const cards = db.all<FlashcardRow>(sql`
       SELECT * FROM flashcard
       WHERE deck_id IN (${sql.raw(deckIdList)})
     `).map(mapFlashcardRow);
+    return attachLearningMaterials(db, cards);
   }
 
   if (subMode === "weakest_first") {
-    return db.all<FlashcardRow>(sql`
+    const cards = db.all<FlashcardRow>(sql`
       SELECT f.*
       FROM flashcard f
       LEFT JOIN flashcard_result fr ON fr.flashcard_id = f.id
@@ -412,6 +440,7 @@ export async function getCourseFlashcards(
         0.5
       ) DESC
     `).map(mapFlashcardRow);
+    return attachLearningMaterials(db, cards);
   }
 
   return [];

@@ -67,7 +67,7 @@ export async function getQuizQuestions(deckId: number, tagIds?: number[]) {
 
   return db.query.quizQuestions.findMany({
     where: sql`${quizQuestions.deckId} = ${deckId}${tagFilter}`,
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   });
 }
 
@@ -128,7 +128,7 @@ export async function getNewQuizQuestions(deckId: number, tagIds?: number[]) {
 
   return db.query.quizQuestions.findMany({
     where: sql`${quizQuestions.deckId} = ${deckId} AND ${quizQuestions.id} NOT IN (SELECT DISTINCT question_id FROM quiz_result)${tagFilter}`,
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   });
 }
 
@@ -229,7 +229,7 @@ export async function getRevisionQuizQuestionsForQuiz(quizId: number) {
   const orderedIds = questionsWithRates.map(q => q.id);
   const questions = db.query.quizQuestions.findMany({
     where: sql`id IN (${sql.raw(orderedIds.join(","))})`,
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   }).sync();
 
   const idOrder = new Map(orderedIds.map((id, i) => [id, i]));
@@ -272,14 +272,14 @@ export async function getCourseQuizQuestions(
   if (subMode === "random") {
     return db.query.quizQuestions.findMany({
       where: sql.raw(whereRaw),
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
     });
   }
 
   if (subMode === "sequential") {
     return db.query.quizQuestions.findMany({
       where: sql.raw(whereRaw),
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
       orderBy: (q, { asc }) => [asc(q.id)],
     });
   }
@@ -304,7 +304,7 @@ export async function getCourseQuizQuestions(
     const orderedIds = questionsWithRates.map(q => q.id);
     const questions = db.query.quizQuestions.findMany({
       where: sql`id IN (${sql.raw(orderedIds.join(","))})`,
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
     }).sync();
 
     const idOrder = new Map(orderedIds.map((id, i) => [id, i]));

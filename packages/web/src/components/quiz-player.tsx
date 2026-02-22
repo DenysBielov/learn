@@ -28,6 +28,7 @@ import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen, ChevronLeft } from "lucide-react";
 import { TagBadge } from "@/components/tag-badge";
 import { CompletionNotes } from "@/components/completion-notes";
+import { LearningMaterials } from "@/components/learning-materials";
 
 interface QuestionOption {
   id: number;
@@ -44,6 +45,7 @@ interface Question {
   explanation: string | null;
   correctAnswer: string | null;
   options: QuestionOption[];
+  learningMaterials?: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface ActiveFilterTag {
@@ -437,6 +439,11 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
               {currentQuestion.explanation && (
                 <div className="text-muted-foreground text-sm">
                   <RichContent content={currentQuestion.explanation} />
+                </div>
+              )}
+              {currentQuestion.learningMaterials && currentQuestion.learningMaterials.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-current/20">
+                  <LearningMaterials materials={currentQuestion.learningMaterials} />
                 </div>
               )}
             </div>

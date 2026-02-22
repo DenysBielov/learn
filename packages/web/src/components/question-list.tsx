@@ -9,6 +9,7 @@ import { deleteQuizQuestion } from "@/app/actions/quiz";
 import { RichContent } from "@/components/rich-content";
 import { TagBadge } from "@/components/tag-badge";
 import { TagPopover } from "@/components/tag-popover";
+import { LearningMaterials } from "@/components/learning-materials";
 import { useState } from "react";
 import type { Tag } from "@/lib/tags";
 
@@ -29,6 +30,7 @@ interface QuizQuestion {
   options: QuestionOption[];
   correctAnswer?: string | null;
   tags?: QuestionTag[];
+  learningMaterials: { id: number; url: string; title: string | null; type: string }[];
 }
 
 interface QuestionListProps {
@@ -151,6 +153,11 @@ export function QuestionList({
                     </div>
                   )}
                 </div>
+                <LearningMaterials
+                  materials={question.learningMaterials}
+                  questionId={question.id}
+                  editable
+                />
                 <Button
                   variant="ghost"
                   size="icon"
