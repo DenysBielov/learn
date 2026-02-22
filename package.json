@@ -10,6 +10,7 @@
     "build": "pnpm --filter @flashcards/web build",
     "migrate": "pnpm --filter @flashcards/database migrate",
     "generate": "pnpm --filter @flashcards/database generate",
-    "add-user": "pnpm --filter @flashcards/database add-user"
+    "add-user": "pnpm --filter @flashcards/database add-user",
+    "seed": "pnpm --filter @flashcards/database seed"
   }
 }

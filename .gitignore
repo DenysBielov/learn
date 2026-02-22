@@ -26,5 +26,8 @@ prototypes/
 .DS_Store
 Thumbs.db
 
+# Local Claude instructions
+CLAUDE.local.md
+
 # Logs
 *.log

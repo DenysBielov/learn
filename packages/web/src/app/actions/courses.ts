@@ -58,7 +58,16 @@ export async function getCourse(id: number) {
   const course = db.select().from(courses).where(and(eq(courses.id, id), eq(courses.userId, userId))).get();
   if (!course) return null;
 
-  const children = db.select().from(courses)
+  const children = db.select({
+    id: courses.id,
+    name: courses.name,
+    description: courses.description,
+    color: courses.color,
+    isActive: courses.isActive,
+    position: courses.position,
+    totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
+    dueCards: sql<number>`(SELECT COUNT(*) FROM course_deck cd INNER JOIN flashcard f ON f.deck_id = cd.deck_id WHERE cd.course_id = "course"."id" AND f.next_review_at <= unixepoch())`,
+  }).from(courses)
     .where(eq(courses.parentId, id))
     .orderBy(courses.position, courses.name)
     .all();

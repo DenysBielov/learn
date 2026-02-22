@@ -60,49 +60,10 @@ Transform the app from a flashcards/quiz tool into a comprehensive learning plat
 - FSRS implementation — from scratch or adapt existing open-source
 - How to handle the notes/materials editor (markdown? rich text? notion-like blocks?)
 
-## 4. MCP server instructions for AI-driven quiz generation
-
-AI agents creating quizzes via the MCP server tend to default to 2-3 question types (mostly `multiple_choice` and `true_false`), ignoring the full variety available. The MCP server should provide explicit guidance so agents generate pedagogically effective, varied quizzes.
-
-### Problem
-
-- The `create_quiz` tool lists supported types but gives no guidance on when to use each
-- No information about what makes a good question of each type
-- No recommended distribution across types for a given topic
-- Agents have no context on learning science principles (varied retrieval, Bloom's taxonomy coverage, etc.)
-
-### Solution: Add MCP server instructions / resources
-
-- **Tool description enrichment** — expand `create_quiz` description with per-type guidance:
-  - `multiple_choice` — best for factual recall, distinguish similar concepts; use plausible distractors
-  - `true_false` — good for common misconceptions; always include explanation for false statements
-  - `free_text` — tests recall without cues; use for definitions, key terms, short explanations
-  - `matching` — great for associating related pairs (term↔definition, cause↔effect, input↔output)
-  - `ordering` — ideal for sequential processes, timelines, priority rankings, algorithm steps
-  - `cloze` — tests in-context recall; use `{{c1::answer}}` syntax; good for formulas, code snippets, key phrases
-  - `multi_select` — when multiple answers are correct; tests nuanced understanding ("select all that apply")
-  - `code_eval` — for programming topics; provide starter code or ask to write functions/expressions
-  - `open_ended` — for deeper analysis, essay-style responses, design questions (Bloom's Apply/Analyze/Create)
-- **Recommended type distribution** — suggest a mix per quiz (e.g., no more than 40% of any single type; aim for 4+ distinct types per quiz of 10+ questions)
-- **MCP resource or prompt** — consider exposing a `quiz_generation_guide` resource that agents can read before generating, covering:
-  - Learning science principles (varied retrieval formats, interleaving)
-  - Per-type best practices and examples
-  - Common pitfalls (too-easy true/false, obvious distractors, etc.)
-  - Topic-specific recommendations (math → cloze + ordering, programming → code_eval + free_text, languages → matching + cloze, etc.)
-
-## 5. Navigate back to previous quiz questions
-
-Currently there's no way to go back to a previous question during a quiz session. If you accidentally skip or want to review/change a previous answer, you're stuck.
-
-- Add a "Previous" button alongside the existing "Next" in quiz sessions
-- Should restore the previous question with the user's submitted answer visible
-- Respect already-answered state — navigating back shows what was selected, not a blank question
-- Consider whether to allow changing answers (probably yes, since it's a learning tool, not an exam)
-
-## 6. Change how answers are shown for particular question types
+## 4. Change how answers are shown for particular question types
 
 For types like match questions we need to show answers inline somehow, so it is easier to understad. maybe croos incorrect answer and show correct answer.
 
-## 7. Make match questions drag and drop
+## 5. Make match questions drag and drop
 
 Current select implemenatition is fine, but lacks interactivity and requires too many clicks.

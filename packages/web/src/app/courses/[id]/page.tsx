@@ -77,8 +77,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
                       name={child.name}
                       description={child.description}
                       color={child.color}
-                      totalDecks={0}
-                      dueCards={0}
+                      totalDecks={child.totalDecks}
+                      dueCards={child.dueCards}
                       isActive={child.isActive}
                     />
                   ))}
@@ -98,8 +98,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
                       name={child.name}
                       description={child.description}
                       color={child.color}
-                      totalDecks={0}
-                      dueCards={0}
+                      totalDecks={child.totalDecks}
+                      dueCards={child.dueCards}
                       isActive={child.isActive}
                     />
                   ))}

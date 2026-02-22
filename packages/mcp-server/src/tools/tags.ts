@@ -84,4 +84,55 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
       return { content: [{ type: "text" as const, text: "Tags applied successfully" }] };
     }
   );
+
+  server.tool(
+    "update_tag",
+    "Update a tag's name or color",
+    {
+      tagId: z.number().int().positive(),
+      name: z.string().min(1).max(100).optional(),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    },
+    async ({ tagId, name, color }) => {
+      const updates: Record<string, unknown> = {};
+      if (name !== undefined) updates.name = name;
+      if (color !== undefined) updates.color = color;
+      if (Object.keys(updates).length === 0) {
+        return { content: [{ type: "text" as const, text: "No fields to update" }], isError: true };
+      }
+      try {
+        const updated = writeTransaction(db, () =>
+          db.update(tags).set(updates).where(and(eq(tags.id, tagId), eq(tags.userId, userId))).returning().all()
+        );
+        if (updated.length === 0) {
+          return { content: [{ type: "text" as const, text: `Tag ${tagId} not found` }], isError: true };
+        }
+        return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("UNIQUE constraint")) {
+          return { content: [{ type: "text" as const, text: `Tag name "${name}" already exists` }], isError: true };
+        }
+        throw err;
+      }
+    }
+  );
+
+  server.tool(
+    "delete_tags",
+    "Delete tags by IDs. Only removes tags and their associations (flashcard_tag, question_tag).",
+    {
+      tagIds: z.array(z.number().int().positive()).min(1).max(50),
+    },
+    async ({ tagIds }) => {
+      const uniqueIds = [...new Set(tagIds)];
+      const owned = db.select({ id: tags.id }).from(tags).where(sql`${tags.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${tags.userId} = ${userId}`).all();
+      if (owned.length !== uniqueIds.length) {
+        return { content: [{ type: "text" as const, text: "One or more tags not found or not owned by you" }], isError: true };
+      }
+      const deleted = writeTransaction(db, () =>
+        db.delete(tags).where(sql`${tags.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${tags.userId} = ${userId}`).returning().all()
+      );
+      return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, count: deleted.length }, null, 2) }] };
+    }
+  );
 }
