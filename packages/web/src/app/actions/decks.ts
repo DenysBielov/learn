@@ -47,8 +47,8 @@ export async function getDeck(id: number) {
   return db.query.decks.findFirst({
     where: and(eq(decks.id, id), eq(decks.userId, userId)),
     with: {
-      flashcards: true,
-      quizQuestions: { with: { options: true } },
+      flashcards: { with: { learningMaterials: true } },
+      quizQuestions: { with: { options: true, learningMaterials: true } },
     },
   });
 }
