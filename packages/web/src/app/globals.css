@@ -142,3 +142,8 @@
     transform: rotateY(180deg);
   }
 }
+
+/* Hide mobile bottom nav when bulk action bar is active */
+body.bulk-action-active nav[class*="fixed bottom"] {
+  display: none;
+}
