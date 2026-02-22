@@ -54,7 +54,7 @@ export async function getQuizQuestions(deckId: number) {
 
   return db.query.quizQuestions.findMany({
     where: eq(quizQuestions.deckId, deckId),
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   });
 }
 
@@ -100,7 +100,7 @@ export async function getNewQuizQuestions(deckId: number) {
 
   return db.query.quizQuestions.findMany({
     where: sql`${quizQuestions.deckId} = ${deckId} AND ${quizQuestions.id} NOT IN (SELECT DISTINCT question_id FROM quiz_result)`,
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   });
 }
 
@@ -129,7 +129,7 @@ export async function getRevisionQuizQuestions(deckId: number) {
   const orderedIds = questionsWithRates.map(q => q.id);
   const questions = db.query.quizQuestions.findMany({
     where: sql`id IN (${sql.raw(orderedIds.join(","))})`,
-    with: { options: true },
+    with: { options: true, learningMaterials: true },
   }).sync();
 
   const idOrder = new Map(orderedIds.map((id, i) => [id, i]));
@@ -163,7 +163,7 @@ export async function getCourseQuizQuestions(
     // Fetch all using Drizzle query builder, shuffle in app code
     return db.query.quizQuestions.findMany({
       where: sql`deck_id IN (${sql.raw(deckIds.join(","))})`,
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
     });
   }
 
@@ -171,7 +171,7 @@ export async function getCourseQuizQuestions(
     // Fetch with deck position ordering
     return db.query.quizQuestions.findMany({
       where: sql`deck_id IN (${sql.raw(deckIds.join(","))})`,
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
       orderBy: (q, { asc }) => [asc(q.deckId), asc(q.id)],
     });
   }
@@ -197,7 +197,7 @@ export async function getCourseQuizQuestions(
     const orderedIds = questionsWithRates.map(q => q.id);
     const questions = db.query.quizQuestions.findMany({
       where: sql`id IN (${sql.raw(orderedIds.join(","))})`,
-      with: { options: true },
+      with: { options: true, learningMaterials: true },
     }).sync();
 
     // Re-sort by original error_rate ordering
