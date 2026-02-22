@@ -9,7 +9,8 @@
     "./schema": "./src/schema.ts",
     "./validation": "./src/validation.ts",
     "./courses": "./src/courses.ts",
-    "./push-subscriptions": "./src/push-subscriptions.ts"
+    "./push-subscriptions": "./src/push-subscriptions.ts",
+    "./dependencies": "./src/dependencies.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",
