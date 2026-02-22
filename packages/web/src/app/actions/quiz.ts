@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
 import { quizQuestions, questionOptions, quizResults, decks, studySessions } from "@flashcards/database/schema";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
@@ -7,6 +8,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDescendantDeckIds } from "@flashcards/database/courses";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
+
+const tagIdsSchema = z.array(z.number().int().positive()).max(50).optional();
 
 export async function createQuizQuestion(data: unknown) {
   const { userId } = await requireAuth();
@@ -44,16 +47,26 @@ export async function createQuizQuestion(data: unknown) {
   revalidatePath(`/decks/${parsed.deckId}`);
 }
 
-export async function getQuizQuestions(deckId: number) {
+export async function getQuizQuestions(deckId: number, tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
 
   const deck = db.select({ id: decks.id }).from(decks)
     .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
   if (!deck) return [];
 
+  const tagFilter = validTagIds?.length ? sql` AND ${quizQuestions.id} IN (
+    SELECT qt.question_id FROM question_tag qt
+    JOIN tag t ON qt.tag_id = t.id
+    WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+      AND t.user_id = ${userId}
+    GROUP BY qt.question_id
+    HAVING COUNT(DISTINCT qt.tag_id) = ${validTagIds.length}
+  )` : sql``;
+
   return db.query.quizQuestions.findMany({
-    where: eq(quizQuestions.deckId, deckId),
+    where: sql`${quizQuestions.deckId} = ${deckId}${tagFilter}`,
     with: { options: true },
   });
 }
@@ -90,27 +103,48 @@ export async function submitQuizAnswer(
   );
 }
 
-export async function getNewQuizQuestions(deckId: number) {
+export async function getNewQuizQuestions(deckId: number, tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
 
   const deck = db.select({ id: decks.id }).from(decks)
     .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
   if (!deck) return [];
 
+  const tagFilter = validTagIds?.length ? sql` AND ${quizQuestions.id} IN (
+    SELECT qt.question_id FROM question_tag qt
+    JOIN tag t ON qt.tag_id = t.id
+    WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+      AND t.user_id = ${userId}
+    Group BY qt.question_id
+    HAVING COUNT(DISTINCT qt.tag_id) = ${validTagIds.length}
+  )` : sql``;
+
   return db.query.quizQuestions.findMany({
-    where: sql`${quizQuestions.deckId} = ${deckId} AND ${quizQuestions.id} NOT IN (SELECT DISTINCT question_id FROM quiz_result)`,
+    where: sql`${quizQuestions.deckId} = ${deckId} AND ${quizQuestions.id} NOT IN (SELECT DISTINCT question_id FROM quiz_result)${tagFilter}`,
     with: { options: true },
   });
 }
 
-export async function getRevisionQuizQuestions(deckId: number) {
+export async function getRevisionQuizQuestions(deckId: number, tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
 
   const deck = db.select({ id: decks.id }).from(decks)
     .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
   if (!deck) return [];
+
+  const tagFilterRaw = validTagIds?.length ? sql`
+    AND q.id IN (
+      SELECT qt.question_id FROM question_tag qt
+      JOIN tag t ON qt.tag_id = t.id
+      WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+        AND t.user_id = ${userId}
+      GROUP BY qt.question_id
+      HAVING COUNT(DISTINCT qt.tag_id) = ${validTagIds.length}
+    )` : sql``;
 
   const questionsWithRates = db.all<{ id: number; error_rate: number }>(sql`
     SELECT q.id,
@@ -119,6 +153,7 @@ export async function getRevisionQuizQuestions(deckId: number) {
     FROM quiz_question q
     INNER JOIN quiz_result qr ON qr.question_id = q.id
     WHERE q.deck_id = ${deckId}
+    ${tagFilterRaw}
     GROUP BY q.id
     HAVING error_rate > 0
     ORDER BY error_rate DESC

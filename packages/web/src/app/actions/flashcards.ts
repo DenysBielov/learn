@@ -51,28 +51,51 @@ export async function deleteFlashcard(id: number, deckId: number) {
   revalidatePath(`/decks/${deckId}`);
 }
 
-export async function getDueFlashcards(deckId?: number) {
+const tagIdsSchema = z.array(z.number().int().positive()).max(50).optional();
+
+export async function getDueFlashcards(deckId?: number, tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
   const now = new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
 
+  const tagFilter = validTagIds?.length ? sql` AND ${flashcards.id} IN (
+    SELECT ft.flashcard_id FROM flashcard_tag ft
+    JOIN tag t ON ft.tag_id = t.id
+    WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+      AND t.user_id = ${userId}
+    GROUP BY ft.flashcard_id
+    HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
+  )` : sql``;
+
   if (deckId) {
     return db.select().from(flashcards)
-      .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`)
+      .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
       .all();
   }
 
   return db.select().from(flashcards)
-    .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`)
+    .where(sql`${flashcards.nextReviewAt} <= ${nowSeconds} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
     .all();
 }
 
-export async function getAllFlashcards(deckId: number) {
+export async function getAllFlashcards(deckId: number, tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
+
+  const tagFilter = validTagIds?.length ? sql` AND ${flashcards.id} IN (
+    SELECT ft.flashcard_id FROM flashcard_tag ft
+    JOIN tag t ON ft.tag_id = t.id
+    WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+      AND t.user_id = ${userId}
+    GROUP BY ft.flashcard_id
+    HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
+  )` : sql``;
+
   return db.select().from(flashcards)
-    .where(sql`${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`)
+    .where(sql`${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
     .all();
 }
 
@@ -229,10 +252,21 @@ function mapFlashcardRow(row: FlashcardRow) {
   };
 }
 
-export async function getDueFlashcardsForActiveCourses() {
+export async function getDueFlashcardsForActiveCourses(tagIds?: number[]) {
   const { userId } = await requireAuth();
+  const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
   const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const tagFilter = validTagIds?.length ? sql`
+    AND f.id IN (
+      SELECT ft.flashcard_id FROM flashcard_tag ft
+      JOIN tag t ON ft.tag_id = t.id
+      WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+        AND t.user_id = ${userId}
+      GROUP BY ft.flashcard_id
+      HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
+    )` : sql``;
 
   return db.all<FlashcardRow>(sql`
     WITH RECURSIVE active_tree AS (
@@ -249,6 +283,7 @@ export async function getDueFlashcardsForActiveCourses() {
     SELECT f.* FROM flashcard f
     JOIN active_decks ad ON f.deck_id = ad.deck_id
     WHERE f.next_review_at <= ${nowSeconds}
+    ${tagFilter}
   `).map(mapFlashcardRow);
 }
 
