@@ -4,6 +4,7 @@ import { getDb, writeTransaction } from "@flashcards/database";
 import { materials, courseSteps, courses, stepProgress } from "@flashcards/database/schema";
 import { createMaterialSchema, updateMaterialSchema } from "@flashcards/database/validation";
 import { getNextStepPosition } from "@flashcards/database/courses";
+import { cleanupDependenciesForMaterial } from "@flashcards/database/dependencies";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
@@ -92,6 +93,9 @@ export async function deleteMaterial(id: number) {
     const existing = db.select({ id: materials.id }).from(materials)
       .where(and(eq(materials.id, id), eq(materials.userId, userId))).get();
     if (!existing) throw new Error("Material not found");
+
+    // Clean up dependencies referencing this material before deleting
+    cleanupDependenciesForMaterial(db, id);
 
     db.delete(materials).where(eq(materials.id, id)).run();
   });

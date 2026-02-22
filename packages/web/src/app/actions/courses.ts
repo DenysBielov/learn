@@ -13,6 +13,7 @@ import {
   getNextDeckPosition,
   getNextStepPosition,
 } from "@flashcards/database/courses";
+import { cleanupDependenciesForCourse } from "@flashcards/database/dependencies";
 import { eq, sql, isNull, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
@@ -269,6 +270,9 @@ export async function moveCourse(courseId: number, newParentId: number | null) {
 
       getAncestorDepth(db, newParentId, userId, true);
     }
+
+    // Clean up sibling dependencies before re-parenting
+    cleanupDependenciesForCourse(db, courseId);
 
     const position = getNextPosition(db, newParentId, userId);
     db.update(courses)

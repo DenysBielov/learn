@@ -1,6 +1,6 @@
 import { eq, and, or, sql, isNotNull } from "drizzle-orm";
-import { type AppDatabase } from "./index.js";
-import { learningDependencies, courses, courseSteps, materials } from "./schema.js";
+import { type AppDatabase } from "./index";
+import { learningDependencies, courses, courseSteps, materials } from "./schema";
 
 /**
  * Verify both sides of a dependency share the same parent course.
