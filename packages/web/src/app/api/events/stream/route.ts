@@ -1,10 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth";
 import { getDb, events } from "@flashcards/database";
-import { and, gt, desc } from "drizzle-orm";
+import { and, gt, desc, sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+// Event pruning — runs once per minute
+let pruneTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPruning() {
+  if (pruneTimer) return; // Already started
+
+  pruneTimer = setInterval(() => {
+    try {
+      const db = getDb();
+      const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 300;
+
+      // Delete events older than 5 minutes
+      db.delete(events)
+        .where(sql`${events.createdAt} < ${fiveMinutesAgo}`)
+        .run();
+
+      // Hard cap: keep max 10,000 rows
+      const countResult = db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(events)
+        .get();
+      const count = countResult?.count ?? 0;
+
+      if (count > 10000) {
+        // Delete oldest events beyond the cap
+        db.run(sql`
+          DELETE FROM event WHERE id NOT IN (
+            SELECT id FROM event ORDER BY id DESC LIMIT 10000
+          )
+        `);
+      }
+    } catch {
+      // Non-critical — skip this cycle
+    }
+  }, 60_000); // Every 60 seconds
+}
+
+// Start pruning when the module loads
+startPruning();
 
 // Per-user connection tracking
 const connections = new Map<number, number>(); // userId -> active count
@@ -81,9 +121,12 @@ export async function GET(request: NextRequest) {
             .all();
 
           for (const event of newEvents) {
-            send(
-              `id: ${event.id}\nevent: ${event.type}\ndata: ${event.payload}\n\n`
-            );
+            // Send as unnamed events (no `event:` field) so that
+            // EventSource.onmessage fires for every event type.
+            // The event type is embedded in the data payload instead.
+            const payload = JSON.parse(event.payload);
+            const data = JSON.stringify({ type: event.type, ...payload });
+            send(`id: ${event.id}\ndata: ${data}\n\n`);
             lastSeenId = event.id;
           }
         } catch {
