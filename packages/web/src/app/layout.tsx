@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Nav } from "@/components/nav";
+import { RealtimeProvider } from "@/components/realtime-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getAuthUser } from "@/lib/auth";
@@ -45,6 +46,7 @@ export default async function RootLayout({
           <div className="flex min-h-screen">
             {user && <Nav />}
             {user && <ServiceWorkerRegister />}
+            {user && <RealtimeProvider />}
             <main className={`flex-1 ${user ? "md:pl-16 lg:pl-64 pb-16 md:pb-0" : ""}`}>
               {children}
             </main>
