@@ -10,6 +10,7 @@ import {
 } from "@flashcards/database";
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
+import { emitEvent } from "@flashcards/database/events";
 
 function validateUrl(url: string): void {
   const parsed = new URL(url);
@@ -66,6 +67,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
         return [created];
       });
 
+      emitEvent(db, userId, "material.created", { materialId: material.id, courseId });
       return { content: [{ type: "text" as const, text: JSON.stringify(material, null, 2) }] };
     }
   );
@@ -105,6 +107,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
         db.update(materials).set(updates).where(eq(materials.id, materialId)).returning().all()
       );
 
+      emitEvent(db, userId, "material.updated", { materialId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
     }
   );
@@ -126,6 +129,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
         db.delete(materials).where(eq(materials.id, materialId)).run()
       );
 
+      emitEvent(db, userId, "material.deleted", { materialId });
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, materialId }) }] };
     }
   );

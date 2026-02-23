@@ -13,6 +13,7 @@ import {
   materialTags,
   writeTransaction,
 } from "@flashcards/database";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, userId: number) {
   // --- Deck links ---
@@ -38,6 +39,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
           db.insert(materialDecks).values({ materialId, deckId }).onConflictDoNothing().run();
         });
 
+        emitEvent(db, userId, "material_link.created", { materialId, deckId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ linked: true, materialId, deckId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -68,6 +70,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
             .run();
         });
 
+        emitEvent(db, userId, "material_link.deleted", { materialId, deckId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ unlinked: true, materialId, deckId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -98,6 +101,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
           db.insert(materialQuizzes).values({ materialId, quizId }).onConflictDoNothing().run();
         });
 
+        emitEvent(db, userId, "material_link.created", { materialId, quizId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ linked: true, materialId, quizId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -128,6 +132,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
             .run();
         });
 
+        emitEvent(db, userId, "material_link.deleted", { materialId, quizId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ unlinked: true, materialId, quizId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -167,6 +172,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
           }).returning().all()
         );
 
+        emitEvent(db, userId, "material_link.created", { materialId, resourceId: created.id });
         return { content: [{ type: "text" as const, text: JSON.stringify(created, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -199,6 +205,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
           db.delete(materialResources).where(eq(materialResources.id, resourceId)).run();
         });
 
+        emitEvent(db, userId, "material_link.deleted", { materialId: resource.materialId, resourceId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, resourceId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -229,6 +236,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
           db.insert(materialTags).values({ materialId, tagId }).onConflictDoNothing().run();
         });
 
+        emitEvent(db, userId, "material_link.created", { materialId, tagId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ assigned: true, materialId, tagId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };
@@ -259,6 +267,7 @@ export function registerMaterialLinkTools(server: McpServer, db: AppDatabase, us
             .run();
         });
 
+        emitEvent(db, userId, "material_link.deleted", { materialId, tagId });
         return { content: [{ type: "text" as const, text: JSON.stringify({ removed: true, materialId, tagId }) }] };
       } catch (err) {
         return { content: [{ type: "text" as const, text: String(err) }], isError: true };

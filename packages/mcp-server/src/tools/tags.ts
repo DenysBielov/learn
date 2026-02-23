@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import {
   type AppDatabase, tags, flashcardTags, questionTags, decks, flashcards, quizQuestions, writeTransaction,
 } from "@flashcards/database";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerTagTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -22,6 +23,9 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
           .returning()
           .all()
       );
+      for (const tag of created) {
+        emitEvent(db, userId, "tag.created", { tagId: tag.id });
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify(created, null, 2) }] };
     }
   );
@@ -81,6 +85,16 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
           }
         }
       });
+      if (flashcardIds) {
+        for (const fId of flashcardIds) {
+          emitEvent(db, userId, "flashcard.updated", { flashcardId: fId });
+        }
+      }
+      if (questionIds) {
+        for (const qId of questionIds) {
+          emitEvent(db, userId, "quiz_question.updated", { questionId: qId });
+        }
+      }
       return { content: [{ type: "text" as const, text: "Tags applied successfully" }] };
     }
   );
@@ -107,6 +121,7 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
         if (updated.length === 0) {
           return { content: [{ type: "text" as const, text: `Tag ${tagId} not found` }], isError: true };
         }
+        emitEvent(db, userId, "tag.updated", { tagId });
         return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
       } catch (err) {
         if (err instanceof Error && err.message.includes("UNIQUE constraint")) {
@@ -132,6 +147,9 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
       const deleted = writeTransaction(db, () =>
         db.delete(tags).where(sql`${tags.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)}) AND ${tags.userId} = ${userId}`).returning().all()
       );
+      for (const tag of deleted) {
+        emitEvent(db, userId, "tag.deleted", { tagId: tag.id });
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, count: deleted.length }, null, 2) }] };
     }
   );

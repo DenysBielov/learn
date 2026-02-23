@@ -20,6 +20,7 @@ import {
   getNextDeckPosition,
   getNextStepPosition,
 } from "@flashcards/database/courses";
+import { emitEvent } from "@flashcards/database/events";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -77,6 +78,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
             .all()
         );
 
+        emitEvent(db, userId, "course.created", { courseId: course.id });
         return { content: [{ type: "text" as const, text: JSON.stringify(course, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -206,6 +208,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         db.update(courses).set(updates).where(and(eq(courses.id, courseId), eq(courses.userId, userId))).returning().all()
       );
 
+      emitEvent(db, userId, "course.updated", { courseId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
     }
   );
@@ -270,6 +273,10 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
           db.delete(courses).where(eq(courses.id, id)).run();
         }
       });
+
+      for (const id of descendantIds) {
+        emitEvent(db, userId, "course.deleted", { courseId: id });
+      }
 
       console.log(
         `[MCP] Deleted course "${existing.name}" (id=${courseId}) and ${descendantIds.length - 1} descendant(s), ${deckLinkCount} deck link(s)`
@@ -340,6 +347,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
             .returning()
             .all()
         );
+        emitEvent(db, userId, "course.updated", { courseId, deckId });
         return { content: [{ type: "text" as const, text: JSON.stringify(link, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -387,6 +395,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         };
       }
 
+      emitEvent(db, userId, "course.updated", { courseId, deckId });
       return {
         content: [
           { type: "text" as const, text: JSON.stringify({ removed: true, courseId, deckId }) },
@@ -468,6 +477,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
           .all()
       );
 
+      emitEvent(db, userId, "course.moved", { courseId, newParentId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
     }
   );
@@ -568,6 +578,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         }
       });
 
+      emitEvent(db, userId, "course.updated", { courseId });
       return { content: [{ type: "text" as const, text: JSON.stringify({ reordered: true, courseId, stepCount: stepIds.length }) }] };
     }
   );
@@ -616,6 +627,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         }
       });
 
+      emitEvent(db, userId, "course.updated", { stepId, completed });
       return { content: [{ type: "text" as const, text: JSON.stringify({ stepId, completed }) }] };
     }
   );

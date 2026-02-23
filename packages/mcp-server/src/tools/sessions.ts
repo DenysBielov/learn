@@ -12,6 +12,7 @@ import {
   quizResults,
   writeTransaction,
 } from "@flashcards/database";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerSessionTools(server: McpServer, db: AppDatabase, userId: number) {
   // ── 1. create_study_session ─────────────────────────────────────────
@@ -85,6 +86,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
             .all()
         );
 
+        emitEvent(db, userId, "session.created", { sessionId: session.id, mode });
         return { content: [{ type: "text" as const, text: JSON.stringify(session, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -126,6 +128,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
             .all()
         );
 
+        emitEvent(db, userId, "session.created", { sessionId: session.id, mode: "reading", materialId });
         return { content: [{ type: "text" as const, text: JSON.stringify(session, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -213,6 +216,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
             .run()
         );
 
+        emitEvent(db, userId, "session.updated", { sessionId });
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ updated: true, sessionId }) }],
         };
@@ -269,6 +273,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
             .all()
         );
 
+        emitEvent(db, userId, "session.closed", { sessionId });
         return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

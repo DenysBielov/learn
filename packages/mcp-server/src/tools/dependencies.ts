@@ -13,6 +13,7 @@ import {
   wouldCreateCycle,
   getDependenciesForCourse,
 } from "@flashcards/database/dependencies";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerDependencyTools(server: McpServer, db: AppDatabase, userId: number) {
   // ── 1. create_dependency ────────────────────────────────────────────
@@ -53,6 +54,7 @@ export function registerDependencyTools(server: McpServer, db: AppDatabase, user
           }).returning().all()
         );
 
+        emitEvent(db, userId, "dependency.created", { dependencyId: dep.id });
         return { content: [{ type: "text" as const, text: JSON.stringify(dep, null, 2) }] };
       } catch (error: any) {
         return { content: [{ type: "text" as const, text: error.message }], isError: true };
@@ -94,6 +96,7 @@ export function registerDependencyTools(server: McpServer, db: AppDatabase, user
           db.delete(learningDependencies).where(eq(learningDependencies.id, dependencyId)).run()
         );
 
+        emitEvent(db, userId, "dependency.deleted", { dependencyId });
         return { content: [{ type: "text" as const, text: `Deleted dependency ${dependencyId}` }] };
       } catch (error: any) {
         return { content: [{ type: "text" as const, text: error.message }], isError: true };

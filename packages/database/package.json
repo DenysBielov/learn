@@ -10,7 +10,8 @@
     "./validation": "./src/validation.ts",
     "./courses": "./src/courses.ts",
     "./push-subscriptions": "./src/push-subscriptions.ts",
-    "./dependencies": "./src/dependencies.ts"
+    "./dependencies": "./src/dependencies.ts",
+    "./events": "./src/events.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",

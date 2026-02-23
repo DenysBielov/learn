@@ -14,6 +14,7 @@ import {
 import { createQuizQuestionForQuizSchema } from "@flashcards/database/validation";
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerQuizEntityTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -49,6 +50,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
         return [created];
       });
 
+      emitEvent(db, userId, "quiz.created", { quizId: quiz.id, courseId });
       return { content: [{ type: "text" as const, text: JSON.stringify(quiz, null, 2) }] };
     }
   );
@@ -80,6 +82,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
         db.update(quizzes).set(updates).where(eq(quizzes.id, quizId)).returning().all()
       );
 
+      emitEvent(db, userId, "quiz.updated", { quizId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
     }
   );
@@ -101,6 +104,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
         db.delete(quizzes).where(eq(quizzes.id, quizId)).run()
       );
 
+      emitEvent(db, userId, "quiz.deleted", { quizId });
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, quizId }) }] };
     }
   );
@@ -173,6 +177,9 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
         return results;
       });
 
+      for (const questionId of created) {
+        emitEvent(db, userId, "quiz_question.created", { questionId, quizId });
+      }
       return { content: [{ type: "text" as const, text: `Created ${created.length} questions in quiz ${quizId}` }] };
     }
   );

@@ -6,6 +6,7 @@ import {
   writeTransaction,
 } from "@flashcards/database";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerFlashcardTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -43,6 +44,9 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
           .returning()
           .all()
       );
+      for (const card of created) {
+        emitEvent(db, userId, "flashcard.created", { flashcardId: card.id, deckId });
+      }
       return { content: [{ type: "text" as const, text: `Created ${created.length} flashcards in deck ${deckId}` }] };
     }
   );
@@ -113,6 +117,7 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
       const updated = writeTransaction(db, () =>
         db.update(flashcards).set(updates).where(eq(flashcards.id, flashcardId)).returning().all()
       );
+      emitEvent(db, userId, "flashcard.updated", { flashcardId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
     }
   );
@@ -166,6 +171,9 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
         return { content: [{ type: "text" as const, text: "Delete failed: count mismatch" }], isError: true };
       }
 
+      for (const card of deleted) {
+        emitEvent(db, userId, "flashcard.deleted", { flashcardId: card.id });
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, count: deleted.length }, null, 2) }] };
     }
   );

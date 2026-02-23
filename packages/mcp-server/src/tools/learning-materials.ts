@@ -2,6 +2,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type AppDatabase, learningMaterials, flashcards, quizQuestions, decks, writeTransaction } from "@flashcards/database";
 import { eq, and } from "drizzle-orm";
+import { emitEvent } from "@flashcards/database/events";
 
 const ALLOWED_URL_SCHEMES = ["http:", "https:", "obsidian:"];
 
@@ -91,6 +92,13 @@ export function registerLearningMaterialTools(server: McpServer, db: AppDatabase
         });
       });
 
+      for (const row of created) {
+        emitEvent(db, userId, "learning_material.created", {
+          learningMaterialId: row.id,
+          flashcardId: flashcard_id ?? null,
+          questionId: question_id ?? null,
+        });
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify(created, null, 2) }] };
     }
   );
@@ -176,6 +184,7 @@ export function registerLearningMaterialTools(server: McpServer, db: AppDatabase
         db.delete(learningMaterials).where(eq(learningMaterials.id, material_id)).run()
       );
 
+      emitEvent(db, userId, "learning_material.deleted", { learningMaterialId: material_id });
       return { content: [{ type: "text" as const, text: `Material ${material_id} removed` }] };
     }
   );

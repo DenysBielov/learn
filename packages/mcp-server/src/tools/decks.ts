@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import { type AppDatabase, decks, flashcards, quizQuestions, writeTransaction } from "@flashcards/database";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerDeckTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -12,6 +13,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
       const [deck] = writeTransaction(db, () =>
         db.insert(decks).values({ name, description: description ?? "", userId }).returning().all()
       );
+      emitEvent(db, userId, "deck.created", { deckId: deck.id });
       return { content: [{ type: "text" as const, text: JSON.stringify(deck, null, 2) }] };
     }
   );
@@ -74,6 +76,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
       if (!deck) {
         return { content: [{ type: "text" as const, text: `Deck ${deckId} not found` }], isError: true };
       }
+      emitEvent(db, userId, "deck.updated", { deckId: deck.id });
       return { content: [{ type: "text" as const, text: JSON.stringify(deck, null, 2) }] };
     }
   );
@@ -107,6 +110,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
       if (deleted.length === 0) {
         return { content: [{ type: "text" as const, text: `Deck ${deckId} not found` }], isError: true };
       }
+      emitEvent(db, userId, "deck.deleted", { deckId });
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, deckId }, null, 2) }] };
     }
   );

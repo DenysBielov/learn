@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { and, eq, isNull, isNotNull, sql } from "drizzle-orm";
 import { type AppDatabase, cardFlags, flashcards, quizQuestions, questionOptions, decks, courses, courseDecks, writeTransaction } from "@flashcards/database";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerFlagTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -88,6 +89,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
           .run()
       );
 
+      emitEvent(db, userId, "flag.resolved", { flagId: flag_id });
       return { content: [{ type: "text" as const, text: `Flag ${flag_id} resolved` }] };
     }
   );
@@ -131,6 +133,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
               .where(eq(cardFlags.id, existing.id))
               .run()
           );
+          emitEvent(db, userId, "flag.created", { flagId: existing.id });
           return { content: [{ type: "text" as const, text: JSON.stringify({ updated: true, flagId: existing.id }, null, 2) }] };
         }
         return { content: [{ type: "text" as const, text: JSON.stringify({ alreadyExists: true, flagId: existing.id }, null, 2) }] };
@@ -146,6 +149,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
         }).returning().all()
       );
 
+      emitEvent(db, userId, "flag.created", { flagId: flag.id });
       return { content: [{ type: "text" as const, text: JSON.stringify(flag, null, 2) }] };
     }
   );

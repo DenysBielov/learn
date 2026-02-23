@@ -7,6 +7,7 @@ import {
 } from "@flashcards/database";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
+import { emitEvent } from "@flashcards/database/events";
 
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -78,6 +79,9 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
         return results;
       });
 
+      for (const questionId of created) {
+        emitEvent(db, userId, "quiz_question.created", { questionId, deckId });
+      }
       return { content: [{ type: "text" as const, text: `Created ${created.length} questions in deck ${deckId}` }] };
     }
   );
@@ -145,6 +149,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
         db.update(quizQuestions).set(updates).where(eq(quizQuestions.id, questionId)).returning().all()
       );
 
+      emitEvent(db, userId, "quiz_question.updated", { questionId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
     }
   );
@@ -204,6 +209,9 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
         return { content: [{ type: "text" as const, text: "Delete count mismatch — some questions may not have been deleted" }], isError: true };
       }
 
+      for (const q of deleted) {
+        emitEvent(db, userId, "quiz_question.deleted", { questionId: q.id });
+      }
       return { content: [{ type: "text" as const, text: JSON.stringify({ deleted: true, count: deleted.length }, null, 2) }] };
     }
   );
