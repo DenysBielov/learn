@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, RefreshCw, BarChart3, LogOut } from "lucide-react";
+import { Home, RefreshCw, BarChart3, Clock, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationToggle } from "@/components/notification-toggle";
@@ -21,6 +21,7 @@ async function cleanupServiceWorker() {
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/review", label: "Review", icon: RefreshCw },
+  { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/stats", label: "Stats", icon: BarChart3 },
 ];
 
