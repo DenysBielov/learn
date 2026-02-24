@@ -4,18 +4,17 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RichContent } from "@/components/rich-content";
 import {
-  DragDropProvider,
+  DndContext,
   DragOverlay,
   useDraggable,
   useDroppable,
-} from "@dnd-kit/react";
-import {
   PointerSensor,
   KeyboardSensor,
-  PointerActivationConstraints,
-  Accessibility,
-} from "@dnd-kit/dom";
-import type { DragEndEvent } from "@dnd-kit/dom";
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { GripVertical, RotateCcw } from "lucide-react";
 
 interface Question {
@@ -49,21 +48,26 @@ function DraggableChip({
   onClick: () => void;
   disabled: boolean;
 }) {
-  const { ref, isDragging } = useDraggable({ id, disabled });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id,
+    disabled,
+  });
 
   return (
     <button
-      ref={ref}
+      ref={setNodeRef}
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={`
         flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium
-        transition-colors select-none cursor-grab active:cursor-grabbing
+        transition-colors select-none cursor-grab active:cursor-grabbing touch-none
         ${isDragging ? "opacity-40" : ""}
         ${isSelected ? "border-primary ring-2 ring-primary/30 bg-primary/10" : "border-border bg-card hover:border-primary/50 hover:bg-accent/50"}
         ${disabled ? "opacity-50 cursor-default" : ""}
       `}
+      {...listeners}
+      {...attributes}
     >
       {!disabled && <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />}
       <RichContent content={label} className="inline [&>*]:inline" />
@@ -88,17 +92,16 @@ function DropZone({
   onUnmatch: () => void;
   disabled: boolean;
 }) {
-  const { ref, isDropTarget } = useDroppable({ id, disabled });
+  const { setNodeRef, isOver } = useDroppable({ id, disabled });
 
   return (
     <div
-      ref={ref}
+      ref={setNodeRef}
       onClick={!disabled && !matchedRight ? onClickZone : undefined}
       className={`
         flex items-center gap-3 rounded-lg border p-3 transition-colors
-        ${isDropTarget ? "border-primary bg-primary/10 ring-1 ring-primary/30" : ""}
-        ${matchedRight && isDropTarget ? "border-primary bg-primary/10 ring-1 ring-primary/30" : ""}
-        ${!matchedRight && selectedItem && !disabled && !isDropTarget ? "border-dashed border-primary/40 cursor-pointer hover:bg-primary/5" : ""}
+        ${isOver ? "border-primary bg-primary/10 ring-1 ring-primary/30" : ""}
+        ${!matchedRight && selectedItem && !disabled && !isOver ? "border-dashed border-primary/40 cursor-pointer hover:bg-primary/5" : ""}
       `}
     >
       <div className="flex-1 font-medium min-w-0">
@@ -114,7 +117,7 @@ function DropZone({
             rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium
             transition-colors shrink-0
             ${disabled ? "cursor-default" : "cursor-pointer hover:bg-destructive/10 hover:border-destructive/30 hover:line-through"}
-            ${isDropTarget ? "opacity-50" : ""}
+            ${isOver ? "opacity-50" : ""}
           `}
         >
           <RichContent content={matchedRight} className="inline [&>*]:inline" />
@@ -161,11 +164,18 @@ export function Matching({ question, onAnswer, disabled }: MatchingProps) {
 
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
     setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
   }, []);
+
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: { distance: 8 },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor);
+  const sensors = useSensors(pointerSensor, keyboardSensor);
 
   const unmatchedRightItems = useMemo(
     () => {
@@ -227,13 +237,20 @@ export function Matching({ question, onAnswer, disabled }: MatchingProps) {
     [disabled, selectedItem, handleMatch]
   );
 
-  const handleDragEnd = useCallback(
-    (event: Parameters<DragEndEvent>[0]) => {
-      const { operation } = event;
-      if (event.canceled || !operation.source || !operation.target) return;
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+    setSelectedItem(null);
+  }, []);
 
-      const rightId = String(operation.source.id);
-      const leftId = String(operation.target.id).replace("drop-", "");
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
+
+      if (!over) return;
+
+      const rightId = String(active.id);
+      const leftId = String(over.id).replace("drop-", "");
 
       if (leftItems.includes(leftId)) {
         handleMatch(leftId, rightId);
@@ -285,37 +302,9 @@ export function Matching({ question, onAnswer, disabled }: MatchingProps) {
   }
 
   return (
-    <DragDropProvider
-      sensors={[
-        PointerSensor.configure({
-          activationConstraints: [
-            new PointerActivationConstraints.Distance({
-              value: 8,
-            }),
-          ],
-        }),
-        KeyboardSensor,
-      ]}
-      plugins={[
-        Accessibility.configure({
-          announcements: {
-            dragstart(event: { operation: { source: { id: unknown } | null } }) {
-              if (event.operation.source) {
-                return `${stripMarkdown(String(event.operation.source.id))} picked up`;
-              }
-            },
-            dragend(event: { operation: { source: { id: unknown } | null; target: { id: unknown } | null }; canceled: boolean }) {
-              if (event.canceled && event.operation.source) {
-                return `${stripMarkdown(String(event.operation.source.id))} returned to pool`;
-              }
-              if (event.operation.source && event.operation.target) {
-                const leftId = String(event.operation.target.id).replace("drop-", "");
-                return `${stripMarkdown(String(event.operation.source.id))} matched with ${stripMarkdown(leftId)}`;
-              }
-            },
-          },
-        }),
-      ]}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-4">
@@ -377,15 +366,13 @@ export function Matching({ question, onAnswer, disabled }: MatchingProps) {
       </div>
 
       <DragOverlay>
-        {(source) =>
-          source ? (
-            <div className="flex items-center gap-2 rounded-lg border border-primary bg-card px-3 py-2.5 text-sm font-medium shadow-lg">
-              <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-              <span>{stripMarkdown(String(source.id))}</span>
-            </div>
-          ) : null
-        }
+        {activeId ? (
+          <div className="flex items-center gap-2 rounded-lg border border-primary bg-card px-3 py-2.5 text-sm font-medium shadow-lg">
+            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+            <span>{stripMarkdown(activeId)}</span>
+          </div>
+        ) : null}
       </DragOverlay>
-    </DragDropProvider>
+    </DndContext>
   );
 }

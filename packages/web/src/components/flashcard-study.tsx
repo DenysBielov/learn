@@ -161,16 +161,23 @@ export function FlashcardStudy({
   const handleRating = async (rating: Sm2Rating) => {
     if (!sessionId || isSubmitting) return;
 
+    const isReRating = !!results[currentIndex];
     setIsSubmitting(true);
     const timeSpentMs = Date.now() - startTime;
 
     try {
       await reviewFlashcard(cards[currentIndex].id, sessionId, rating, timeSpentMs);
 
-      setResults([...results, { rating }]);
+      setResults(prev => {
+        const updated = [...prev];
+        updated[currentIndex] = { rating };
+        return updated;
+      });
 
-      // Move to next card or complete
-      if (currentIndex < cards.length - 1) {
+      if (isReRating) {
+        // Re-rating: stay on card, reset timer
+        setStartTime(Date.now());
+      } else if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
         setIsFlipped(false);
@@ -199,7 +206,11 @@ export function FlashcardStudy({
         toggleFlag("requires_more_study", cards[currentIndex].id),
       ]);
 
-      setResults([...results, { rating: "skipped" }]);
+      setResults(prev => {
+        const updated = [...prev];
+        updated[currentIndex] = { rating: "skipped" };
+        return updated;
+      });
 
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
@@ -363,85 +374,83 @@ export function FlashcardStudy({
                 <Badge variant="outline">Back</Badge>
               </div>
               <RichContent content={currentCard.back} className="text-base" />
-              {currentCard.learningMaterials && currentCard.learningMaterials.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <LearningMaterials materials={currentCard.learningMaterials} />
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Learning materials — always visible */}
+      {currentCard.learningMaterials && currentCard.learningMaterials.length > 0 && (
+        <LearningMaterials materials={currentCard.learningMaterials} />
+      )}
 
       {/* Flag buttons */}
       {isFlipped && (
         <FlagButtons flashcardId={currentCard.id} key={`flags-${currentCard.id}`} />
       )}
 
-      {results[currentIndex] ? (
-        /* Already reviewed — show previous rating */
+      {/* Previous rating indicator */}
+      {results[currentIndex] && (
         <div className="text-center text-sm text-muted-foreground">
-          Rated: <span className="font-medium capitalize">{results[currentIndex].rating}</span>
+          Previously rated: <span className="font-medium capitalize">{results[currentIndex].rating}</span>
         </div>
-      ) : (
-        <>
-          {/* Rating buttons */}
-          {isFlipped && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Button
-                variant="destructive"
-                onClick={() => handleRating("again")}
-                disabled={isSubmitting}
-                className="flex flex-col gap-1 h-auto py-4"
-              >
-                <span className="text-lg font-bold">Again</span>
-                <span className="text-xs opacity-80">Press 1</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleRating("hard")}
-                disabled={isSubmitting}
-                className="flex flex-col gap-1 h-auto py-4 border-orange-500 text-orange-600 hover:bg-orange-500/10"
-              >
-                <span className="text-lg font-bold">Hard</span>
-                <span className="text-xs opacity-80">Press 2</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleRating("good")}
-                disabled={isSubmitting}
-                className="flex flex-col gap-1 h-auto py-4 border-blue-500 text-blue-600 hover:bg-blue-500/10"
-              >
-                <span className="text-lg font-bold">Good</span>
-                <span className="text-xs opacity-80">Press 3</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleRating("easy")}
-                disabled={isSubmitting}
-                className="flex flex-col gap-1 h-auto py-4 border-green-500 text-green-600 hover:bg-green-500/10"
-              >
-                <span className="text-lg font-bold">Easy</span>
-                <span className="text-xs opacity-80">Press 4</span>
-              </Button>
-            </div>
-          )}
+      )}
 
-          {/* Skip button (before flipping) */}
-          {!isFlipped && (
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                onClick={handleSkip}
-                disabled={isSubmitting || skipping}
-                className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-              >
-                <BookOpen className="mr-2 h-4 w-4" />
-                {skipping ? "Skipping..." : "Skip — I need to learn this first"}
-              </Button>
-            </div>
-          )}
-        </>
+      {/* Rating buttons */}
+      {isFlipped && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Button
+            variant="destructive"
+            onClick={() => handleRating("again")}
+            disabled={isSubmitting}
+            className="flex flex-col gap-1 h-auto py-4"
+          >
+            <span className="text-lg font-bold">Again</span>
+            <span className="text-xs opacity-80">Press 1</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleRating("hard")}
+            disabled={isSubmitting}
+            className="flex flex-col gap-1 h-auto py-4 border-orange-500 text-orange-600 hover:bg-orange-500/10"
+          >
+            <span className="text-lg font-bold">Hard</span>
+            <span className="text-xs opacity-80">Press 2</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleRating("good")}
+            disabled={isSubmitting}
+            className="flex flex-col gap-1 h-auto py-4 border-blue-500 text-blue-600 hover:bg-blue-500/10"
+          >
+            <span className="text-lg font-bold">Good</span>
+            <span className="text-xs opacity-80">Press 3</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleRating("easy")}
+            disabled={isSubmitting}
+            className="flex flex-col gap-1 h-auto py-4 border-green-500 text-green-600 hover:bg-green-500/10"
+          >
+            <span className="text-lg font-bold">Easy</span>
+            <span className="text-xs opacity-80">Press 4</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Skip button (before flipping) */}
+      {!isFlipped && !results[currentIndex] && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            disabled={isSubmitting || skipping}
+            className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+          >
+            <BookOpen className="mr-2 h-4 w-4" />
+            {skipping ? "Skipping..." : "Skip — I need to learn this first"}
+          </Button>
+        </div>
       )}
 
       {/* Keyboard shortcuts hint */}

@@ -192,6 +192,8 @@ export const studySessions = sqliteTable("study_session", {
   completedAt: integer("completed_at", { mode: "timestamp" }),
   summary: text("summary"),
   notes: text("notes"),
+  title: text("title"),
+  insights: text("insights"), // JSON array of { author, content, createdAt }
 }, (table) => [
   index("idx_study_session_deck").on(table.deckId),
   index("idx_study_session_course").on(table.courseId),

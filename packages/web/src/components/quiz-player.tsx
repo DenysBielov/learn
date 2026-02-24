@@ -441,12 +441,12 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
                   <RichContent content={currentQuestion.explanation} />
                 </div>
               )}
-              {currentQuestion.learningMaterials && currentQuestion.learningMaterials.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-current/20">
-                  <LearningMaterials materials={currentQuestion.learningMaterials} />
-                </div>
-              )}
             </div>
+          )}
+
+          {/* Learning materials — always visible */}
+          {currentQuestion.learningMaterials && currentQuestion.learningMaterials.length > 0 && (
+            <LearningMaterials materials={currentQuestion.learningMaterials} />
           )}
 
           {/* Flag buttons */}

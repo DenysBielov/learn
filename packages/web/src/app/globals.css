@@ -156,3 +156,45 @@
 body.bulk-action-active nav[class*="fixed bottom"] {
   display: none;
 }
+
+/* Inline cloze inputs within KaTeX math */
+.cloze-inline-input {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  vertical-align: baseline;
+  line-height: 1;
+  display: inline-block;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--muted);
+  text-align: center;
+  outline: none;
+  padding: 0.1em 0.35em;
+  font-size: inherit;
+  color: inherit;
+}
+
+.cloze-inline-input:focus {
+  border-color: var(--primary);
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cloze-inline-input:disabled {
+  opacity: 0.7;
+}
+
+.cloze-inline-input.future {
+  border-style: dashed;
+  opacity: 0.4;
+  background: transparent;
+}
+
+.cloze-inline-input.correct {
+  border-color: var(--color-chart-2, #22c55e);
+  background: oklch(0.6 0.118 184.704 / 10%);
+}
+
+.cloze-inline-input.incorrect {
+  border-color: var(--destructive);
+  background: oklch(0.577 0.245 27.325 / 10%);
+}

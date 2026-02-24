@@ -37,6 +37,18 @@ export const LEARNING_CONTENT_GUIDE = `# Learning Content Creation Guide
 - Use {{c1::answer}} syntax. Optional hints: {{c1::answer::hint text}}.
 - Preserve enough surrounding context so the blank is answerable — don't remove too much.
 - For complex concepts, use multiple cloze groups (c1, c2, c3) to test different parts of the same passage.
+- LaTeX math works inside cloze markers: $E = {{c1::mc^2}}$ renders the formula with an inline input for the blank.
+- Limitation: cloze answers cannot contain } characters (the closing brace terminates the marker).
+- **CRITICAL — cloze answers must be plain-text typeable.** Users type answers on a keyboard, so answers must NOT contain raw LaTeX commands. Write answers as plain text that a user would naturally type:
+  - WRONG: {{c1::\\frac{1}{2}}} — user cannot type this
+  - RIGHT: {{c1::1/2}} — user types "1/2"
+  - WRONG: {{c1::\\|a\\| \\cdot \\|b\\|}} — unreadable LaTeX
+  - RIGHT: {{c1::|a| * |b|}} or split into two blanks: {{c1::|a|}} and {{c2::|b|}}
+  - WRONG: {{c1::\\det(A)}} — unnecessary backslash
+  - RIGHT: {{c1::det(A)}} — plain text
+  - WRONG: {{c1::\\sqrt{n}}} — LaTeX command
+  - RIGHT: {{c1::sqrt(n)}} — plain text
+  - For complex expressions that can't be simplified to plain text, keep the surrounding LaTeX outside the cloze marker and only blank out the simple part: $\\frac{1}{{{c1::2}}}$ (user just types "2").
 - Particularly effective for: mathematical formulas, code syntax, foreign language grammar, fill-in definitions.
 
 **multi_select** — Best when multiple answers are correct (testing nuanced understanding, "select all that apply").
