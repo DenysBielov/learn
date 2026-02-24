@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb, writeTransaction } from "@flashcards/database";
-import { materials, courseSteps, courses, stepProgress } from "@flashcards/database/schema";
+import { materials, courseSteps, courses, stepProgress, materialDecks, materialQuizzes, decks, quizzes } from "@flashcards/database/schema";
 import { createMaterialSchema, updateMaterialSchema } from "@flashcards/database/validation";
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { cleanupDependenciesForMaterial } from "@flashcards/database/dependencies";
@@ -158,6 +158,25 @@ export async function getMaterial(id: number) {
     if (currentIdx < allSteps.length - 1) nextStep = allSteps[currentIdx + 1];
   }
 
+  // Linked decks
+  const linkedDecks = db.select({
+    id: decks.id,
+    name: decks.name,
+    flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = ${decks.id})`,
+  }).from(materialDecks)
+    .innerJoin(decks, eq(materialDecks.deckId, decks.id))
+    .where(eq(materialDecks.materialId, id))
+    .all();
+
+  // Linked quizzes
+  const linkedQuizzes = db.select({
+    id: quizzes.id,
+    title: quizzes.title,
+  }).from(materialQuizzes)
+    .innerJoin(quizzes, eq(materialQuizzes.quizId, quizzes.id))
+    .where(eq(materialQuizzes.materialId, id))
+    .all();
+
   return {
     ...material,
     step: step ? {
@@ -170,5 +189,7 @@ export async function getMaterial(id: number) {
     } : null,
     prevStep: prevStep ?? null,
     nextStep: nextStep ?? null,
+    linkedDecks,
+    linkedQuizzes,
   };
 }

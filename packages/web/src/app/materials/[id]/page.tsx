@@ -1,7 +1,6 @@
 import { getMaterial } from "@/app/actions/materials";
-import { RichContent } from "@/components/rich-content";
+import { MaterialTabs } from "@/components/material-tabs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
@@ -59,14 +58,12 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
         </a>
       )}
 
-      {/* Content */}
-      {material.content && (
-        <Card>
-          <CardContent className="pt-6 prose prose-neutral dark:prose-invert max-w-none">
-            <RichContent content={material.content} />
-          </CardContent>
-        </Card>
-      )}
+      {/* Content with Tabs */}
+      <MaterialTabs
+        content={material.content}
+        linkedDecks={material.linkedDecks}
+        linkedQuizzes={material.linkedQuizzes}
+      />
 
       {/* Completion & Navigation */}
       {material.step && (
