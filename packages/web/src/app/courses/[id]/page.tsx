@@ -1,13 +1,12 @@
 import { getCourse, getCourseBreadcrumbs, getCourseJourney } from "@/app/actions/courses";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CourseCard } from "@/components/course-card";
-import { DeckCard } from "@/components/deck-card";
 import { CreateCourseDialog } from "@/components/create-course-dialog";
 import { AddDeckToCourseDialog } from "@/components/add-deck-to-course-dialog";
 import { EditCourseDialog } from "@/components/edit-course-dialog";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
-import { LearningJourney } from "@/components/learning-journey";
 import { AddStepDialog } from "@/components/add-step-dialog";
+import { CourseSplitLayout } from "@/components/course-split-layout";
+import type { TreeItem } from "@/components/course-tree";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -34,6 +33,39 @@ export default async function CoursePage({ params }: CoursePageProps) {
   const completedStepIds = new Set(
     journey.filter(s => s.isCompleted).map(s => s.id)
   );
+
+  // Build tree items from course data
+  const treeItems: TreeItem[] = [
+    // Steps first
+    ...journey.map(s => ({
+      type: "step" as const,
+      id: s.id,
+      stepType: s.stepType,
+      title: s.title,
+      materialId: s.materialId,
+      quizId: s.quizId,
+      isCompleted: s.isCompleted,
+    })),
+    // Then decks
+    ...course.decks.map(d => ({
+      type: "deck" as const,
+      deckId: d.deckId,
+      name: d.name,
+      flashcardCount: d.flashcardCount,
+      questionCount: d.questionCount,
+      dueCount: d.dueCount,
+    })),
+    // Then sub-courses
+    ...course.children.map(c => ({
+      type: "subcourse" as const,
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      isActive: c.isActive,
+      totalDecks: c.totalDecks,
+      dueCards: c.dueCards,
+    })),
+  ];
 
   return (
     <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
@@ -69,92 +101,17 @@ export default async function CoursePage({ params }: CoursePageProps) {
         <AddStepDialog courseId={courseId} />
       </div>
 
-      {course.steps.length > 0 && (
-        <LearningJourney
-          courseId={courseId}
-          steps={course.steps}
-          completedStepIds={completedStepIds}
-        />
-      )}
-
-      {course.children.length > 0 && (() => {
-        const activeChildren = course.children.filter(c => c.isActive);
-        const inactiveChildren = course.children.filter(c => !c.isActive);
-        return (
-          <>
-            {activeChildren.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold mb-4">Active Sub-Courses</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {activeChildren.map((child) => (
-                    <CourseCard
-                      key={child.id}
-                      id={child.id}
-                      name={child.name}
-                      description={child.description}
-                      color={child.color}
-                      totalDecks={child.totalDecks}
-                      dueCards={child.dueCards}
-                      isActive={child.isActive}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            {inactiveChildren.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold mb-4">
-                  {activeChildren.length > 0 ? "Other Sub-Courses" : "Sub-Courses"}
-                </h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {inactiveChildren.map((child) => (
-                    <CourseCard
-                      key={child.id}
-                      id={child.id}
-                      name={child.name}
-                      description={child.description}
-                      color={child.color}
-                      totalDecks={child.totalDecks}
-                      dueCards={child.dueCards}
-                      isActive={child.isActive}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        );
-      })()}
-
-
-      {course.decks.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-4">Decks</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {course.decks.map((deck) => (
-              <DeckCard
-                key={deck.deckId}
-                id={deck.deckId}
-                name={deck.name}
-                description={deck.description ?? ""}
-                flashcardCount={deck.flashcardCount}
-                questionCount={deck.questionCount}
-                dueCount={deck.dueCount}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <SessionHistory courseId={courseId} />
-
-      {course.children.length === 0 && course.decks.length === 0 && course.steps.length === 0 && (
+      {treeItems.length > 0 ? (
+        <CourseSplitLayout courseId={courseId} items={treeItems} />
+      ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground mb-4">
             This course is empty. Add sub-courses, link existing decks, or add learning steps to get started.
           </p>
         </div>
       )}
+
+      <SessionHistory courseId={courseId} />
     </div>
   );
 }
