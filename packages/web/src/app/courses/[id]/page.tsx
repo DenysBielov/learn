@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SessionHistory } from "@/components/session-history";
-import { BookOpen, Brain } from "lucide-react";
+import { BookOpen, Brain, GitBranch } from "lucide-react";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -94,6 +94,12 @@ export default async function CoursePage({ params }: CoursePageProps) {
           <Link href={`/courses/${courseId}/quiz`}>
             <Brain className="mr-2 h-4 w-4" />
             Take Quiz
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/courses/${courseId}/graph`}>
+            <GitBranch className="mr-2 h-4 w-4" />
+            View Graph
           </Link>
         </Button>
         <CreateCourseDialog parentId={courseId} triggerLabel="Add Sub-Course" />
