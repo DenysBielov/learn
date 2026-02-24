@@ -13,8 +13,8 @@ interface DeckCardProps {
 
 export function DeckCard({ id, name, description, flashcardCount, questionCount, dueCount }: DeckCardProps) {
   return (
-    <Link href={`/decks/${id}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className="h-full hover:shadow-lg transition-shadow">
+    <Link href={`/decks/${id}`} className="block">
+      <Card className="h-full transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="truncate">{name}</CardTitle>

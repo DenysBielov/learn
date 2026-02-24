@@ -36,7 +36,7 @@ export function StudyModePicker({ courseId, type }: StudyModePickerProps) {
         return (
           <Card
             key={mode.value}
-            className="cursor-pointer hover:shadow-lg transition-shadow"
+            className="cursor-pointer"
             onClick={() => router.push(`${basePath}?mode=${mode.value}`)}
           >
             <CardHeader>

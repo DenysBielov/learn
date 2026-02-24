@@ -15,8 +15,8 @@ interface CourseCardProps {
 
 export function CourseCard({ id, name, description, color, totalDecks, dueCards, isActive }: CourseCardProps) {
   return (
-    <Link href={`/courses/${id}`} className="block transition-transform hover:scale-[1.02]">
-      <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden">
+    <Link href={`/courses/${id}`} className="block">
+      <Card className="h-full overflow-hidden transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
         <div className="h-1.5" style={{ backgroundColor: color }} />
         <CardHeader>
           <div className="flex items-start justify-between gap-2">

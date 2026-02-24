@@ -24,7 +24,7 @@ export function DeckQuizModePicker({ deckId }: DeckQuizModePickerProps) {
         return (
           <Card
             key={mode.value}
-            className="cursor-pointer hover:shadow-lg transition-shadow"
+            className="cursor-pointer"
             onClick={() => router.push(`/quiz/${deckId}?mode=${mode.value}`)}
           >
             <CardHeader>
