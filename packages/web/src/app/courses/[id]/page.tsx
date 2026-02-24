@@ -30,10 +30,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
 
   if (!course) notFound();
 
-  const completedStepIds = new Set(
-    journey.filter(s => s.isCompleted).map(s => s.id)
-  );
-
   // Build tree items from course data
   const treeItems: TreeItem[] = [
     // Steps first
@@ -108,7 +104,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
       </div>
 
       {treeItems.length > 0 ? (
-        <CourseSplitLayout courseId={courseId} items={treeItems} />
+        <CourseSplitLayout items={treeItems} />
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-muted-foreground mb-4">

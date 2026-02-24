@@ -7,10 +7,9 @@ import type { TreeItem } from "@/components/course-tree";
 
 interface CourseDetailPanelProps {
   item: TreeItem | null;
-  courseId: number;
 }
 
-export function CourseDetailPanel({ item, courseId }: CourseDetailPanelProps) {
+export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
   if (!item) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">

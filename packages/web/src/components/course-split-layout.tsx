@@ -6,7 +6,6 @@ import { CourseTree, type TreeItem } from "@/components/course-tree";
 import { CourseDetailPanel } from "@/components/course-detail-panel";
 
 interface CourseSplitLayoutProps {
-  courseId: number;
   items: TreeItem[];
 }
 
@@ -16,7 +15,7 @@ function getItemId(item: TreeItem): string {
   return `course-${item.id}`;
 }
 
-export function CourseSplitLayout({ courseId, items }: CourseSplitLayoutProps) {
+export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     items.length > 0 ? getItemId(items[0]) : null
   );
@@ -39,7 +38,7 @@ export function CourseSplitLayout({ courseId, items }: CourseSplitLayoutProps) {
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="65%">
             <div className="h-full overflow-y-auto bg-background">
-              <CourseDetailPanel item={selectedItem} courseId={courseId} />
+              <CourseDetailPanel item={selectedItem} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -50,7 +49,7 @@ export function CourseSplitLayout({ courseId, items }: CourseSplitLayoutProps) {
         <CourseTree items={items} selectedId={selectedId} onSelect={setSelectedId} />
         {selectedItem && (
           <div className="mt-4 bg-card border rounded-[10px]">
-            <CourseDetailPanel item={selectedItem} courseId={courseId} />
+            <CourseDetailPanel item={selectedItem} />
           </div>
         )}
       </div>
