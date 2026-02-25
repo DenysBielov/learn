@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BookOpen, Brain, Layers, ChevronRight, Check, Circle, FolderOpen, Loader2
+  BookOpen, Brain, Layers, ChevronRight, Check, FolderOpen, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

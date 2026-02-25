@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { CourseTree, getItemId, type TreeItem } from "@/components/course-tree";
 import { CourseDetailPanel } from "@/components/course-detail-panel";
@@ -52,7 +51,6 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
   }, [expandedChildren]);
 
   const router = useRouter();
-  const isMobile = useIsMobile();
 
   const handleNavigate = useCallback((item: TreeItem) => {
     if (item.type === "subcourse") {
