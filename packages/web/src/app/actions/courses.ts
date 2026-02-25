@@ -67,6 +67,7 @@ export async function getCourse(id: number) {
     color: courses.color,
     isActive: courses.isActive,
     position: courses.position,
+    estimatedHours: courses.estimatedHours,
     totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
     dueCards: sql<number>`(SELECT COUNT(*) FROM course_deck cd INNER JOIN flashcard f ON f.deck_id = cd.deck_id WHERE cd.course_id = "course"."id" AND f.next_review_at <= unixepoch())`,
   }).from(courses)
@@ -425,4 +426,83 @@ export async function getAvailableDecks(courseId: number) {
     .where(sql`${decks.id} NOT IN (SELECT deck_id FROM course_deck WHERE course_id = ${courseId}) AND ${decks.userId} = ${userId}`)
     .orderBy(decks.name)
     .all();
+}
+
+export async function getCourseTreeChildren(courseId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  // Verify ownership
+  const course = db.select({ id: courses.id, description: courses.description, estimatedHours: courses.estimatedHours })
+    .from(courses)
+    .where(and(eq(courses.id, courseId), eq(courses.userId, userId)))
+    .get();
+  if (!course) throw new Error("Course not found");
+
+  // Get journey steps (same pattern as getCourseJourney)
+  const steps = db.all<{
+    id: number; position: number; step_type: string;
+    material_id: number | null; quiz_id: number | null;
+    title: string; is_completed: number | null;
+  }>(sql`
+    SELECT cs.id, cs.position, cs.step_type, cs.material_id, cs.quiz_id,
+      COALESCE(m.title, q.title) AS title, sp.is_completed
+    FROM course_step cs
+    LEFT JOIN material m ON cs.material_id = m.id
+    LEFT JOIN quiz q ON cs.quiz_id = q.id
+    LEFT JOIN step_progress sp ON sp.course_step_id = cs.id AND sp.user_id = ${userId}
+    WHERE cs.course_id = ${courseId}
+    ORDER BY cs.position
+  `);
+
+  // Get direct decks
+  const deckRows = db.all<{
+    deck_id: number; name: string; flashcard_count: number; question_count: number; due_count: number;
+  }>(sql`
+    SELECT cd.deck_id, d.name,
+      (SELECT COUNT(*) FROM flashcard f WHERE f.deck_id = d.id) AS flashcard_count,
+      (SELECT COUNT(*) FROM quiz_question qq WHERE qq.deck_id = d.id) AS question_count,
+      (SELECT COUNT(*) FROM flashcard f WHERE f.deck_id = d.id AND f.next_review_at <= unixepoch()) AS due_count
+    FROM course_deck cd
+    JOIN deck d ON d.id = cd.deck_id
+    WHERE cd.course_id = ${courseId}
+    ORDER BY cd.position
+  `);
+
+  // Get child courses
+  const children = db.all<{
+    id: number; name: string; color: string; is_active: number;
+    description: string | null; estimated_hours: number | null;
+    total_decks: number; due_cards: number;
+  }>(sql`
+    SELECT c.id, c.name, c.color, c.is_active, c.description, c.estimated_hours,
+      (SELECT COUNT(*) FROM course_deck cd2 WHERE cd2.course_id = c.id) AS total_decks,
+      (SELECT COUNT(*) FROM course_deck cd3
+       JOIN flashcard f ON f.deck_id = cd3.deck_id
+       WHERE cd3.course_id = c.id AND f.next_review_at <= unixepoch()) AS due_cards
+    FROM course c
+    WHERE c.parent_id = ${courseId} AND c.user_id = ${userId}
+    ORDER BY c.position
+  `);
+
+  return {
+    steps: steps.map(s => ({
+      id: s.id, position: s.position,
+      stepType: s.step_type as "material" | "quiz",
+      materialId: s.material_id, quizId: s.quiz_id,
+      title: s.title, isCompleted: !!s.is_completed,
+    })),
+    decks: deckRows.map(d => ({
+      deckId: d.deck_id, name: d.name,
+      flashcardCount: d.flashcard_count,
+      questionCount: d.question_count,
+      dueCount: d.due_count,
+    })),
+    children: children.map(c => ({
+      id: c.id, name: c.name, color: c.color,
+      isActive: !!c.is_active,
+      description: c.description, estimatedHours: c.estimated_hours,
+      totalDecks: c.total_decks, dueCards: c.due_cards,
+    })),
+  };
 }

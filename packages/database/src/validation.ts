@@ -232,6 +232,7 @@ export const updateMaterialSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().max(100_000).optional(),
   externalUrl: z.string().max(2000).optional(),
+  notes: z.string().max(100_000).nullable().optional(),
 });
 
 // --- Standalone Quiz ---
