@@ -32,25 +32,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
 
   // Build tree items from course data
   const treeItems: TreeItem[] = [
-    // Steps first
-    ...journey.map(s => ({
-      type: "step" as const,
-      id: s.id,
-      stepType: s.stepType,
-      title: s.title,
-      materialId: s.materialId,
-      quizId: s.quizId,
-      isCompleted: s.isCompleted,
-    })),
-    // Then decks
-    ...course.decks.map(d => ({
-      type: "deck" as const,
-      deckId: d.deckId,
-      name: d.name,
-      flashcardCount: d.flashcardCount,
-      dueCount: d.dueCount,
-    })),
-    // Then sub-courses
+    // Sub-courses first
     ...course.children.map(c => ({
       type: "subcourse" as const,
       id: c.id,
@@ -61,6 +43,24 @@ export default async function CoursePage({ params }: CoursePageProps) {
       dueCards: c.dueCards,
       description: c.description ?? null,
       estimatedHours: c.estimatedHours ?? null,
+    })),
+    // Then steps (materials + quizzes in order)
+    ...journey.map(s => ({
+      type: "step" as const,
+      id: s.id,
+      stepType: s.stepType,
+      title: s.title,
+      materialId: s.materialId,
+      quizId: s.quizId,
+      isCompleted: s.isCompleted,
+    })),
+    // Then flashcard decks
+    ...course.decks.map(d => ({
+      type: "deck" as const,
+      deckId: d.deckId,
+      name: d.name,
+      flashcardCount: d.flashcardCount,
+      dueCount: d.dueCount,
     })),
   ];
 

@@ -35,9 +35,9 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
     try {
       const data = await getCourseTreeChildren(courseId);
       const childItems: TreeItem[] = [
+        ...data.children.map((c) => ({ type: "subcourse" as const, ...c })),
         ...data.steps.map((s) => ({ type: "step" as const, ...s })),
         ...data.decks.map((d) => ({ type: "deck" as const, ...d })),
-        ...data.children.map((c) => ({ type: "subcourse" as const, ...c })),
       ];
       setExpandedChildren((prev) => ({ ...prev, [key]: childItems }));
     } finally {
