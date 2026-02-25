@@ -142,7 +142,7 @@ export function CourseTree({
             {/* Icon for all item types */}
             {item.type === "step" ? (
               <div className="shrink-0 relative">
-                <Icon className={cn("h-4 w-4", item.isCompleted ? "text-green-400" : "text-muted-foreground")} />
+                <Icon className={cn("h-4 w-4", item.isCompleted ? "text-green-400" : item.stepType === "material" ? "text-blue-400/70" : "text-orange-400/70")} />
                 {item.isCompleted && (
                   <div className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border border-background flex items-center justify-center">
                     <Check className="h-1.5 w-1.5 text-white" />
@@ -150,7 +150,7 @@ export function CourseTree({
                 )}
               </div>
             ) : (
-              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Icon className={cn("h-4 w-4 shrink-0", item.type === "deck" ? "text-emerald-400/70" : "text-muted-foreground")} />
             )}
 
             <div className="flex-1 min-w-0">
