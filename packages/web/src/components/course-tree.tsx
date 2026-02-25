@@ -14,6 +14,7 @@ interface CourseTreeProps {
   items: TreeItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onNavigate?: (item: TreeItem) => void;
   expandedChildren: Record<string, TreeItem[]>;
   loadingIds: Set<string>;
   onToggleExpand: (courseId: number) => void;
@@ -38,6 +39,7 @@ export function CourseTree({
   items,
   selectedId,
   onSelect,
+  onNavigate,
   expandedChildren,
   loadingIds,
   onToggleExpand,
@@ -64,6 +66,34 @@ export function CourseTree({
           const children = expandedChildren[itemId];
           const isExpanded = Boolean(children);
 
+          if (onNavigate) {
+            // Mobile navigation mode: single button that navigates
+            return (
+              <div key={itemId}>
+                <button
+                  onClick={() => onNavigate(item)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors w-full",
+                    isSelected
+                      ? "bg-blue-500/[0.06] border border-blue-500/25 text-foreground"
+                      : "hover:bg-[var(--card-hover)] border border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                  style={{ paddingLeft: `${indentPx + 12}px` }}
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate font-medium">{item.name}</div>
+                    <div className="text-xs text-muted-foreground/60 mt-0.5">
+                      <span>{item.totalDecks} decks{item.dueCards > 0 && ` \u00b7 ${item.dueCards} due`}</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                </button>
+              </div>
+            );
+          }
+
+          // Desktop mode: expand/collapse + select
           return (
             <div key={itemId}>
               <div
@@ -111,7 +141,7 @@ export function CourseTree({
                 </button>
               </div>
 
-              {/* Recursively render children when expanded */}
+              {/* Recursively render children when expanded (desktop only) */}
               {isExpanded && children && children.length > 0 && (
                 <CourseTree
                   items={children}
@@ -130,7 +160,7 @@ export function CourseTree({
         return (
           <button
             key={itemId}
-            onClick={() => onSelect(itemId)}
+            onClick={() => onNavigate ? onNavigate(item) : onSelect(itemId)}
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors w-full",
               isSelected
