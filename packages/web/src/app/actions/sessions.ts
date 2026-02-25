@@ -184,7 +184,7 @@ export async function getHeatmapData() {
 
   const dayMap: Record<string, {
     totalMinutes: number;
-    courses: { name: string; color: string; minutes: number }[];
+    courses: Record<number, { name: string; color: string; minutes: number }>;
   }> = {};
 
   for (const session of sessions) {
@@ -199,7 +199,7 @@ export async function getHeatmapData() {
     }
 
     if (!dayMap[dateKey]) {
-      dayMap[dateKey] = { totalMinutes: 0, courses: [] };
+      dayMap[dateKey] = { totalMinutes: 0, courses: {} };
     }
 
     dayMap[dateKey].totalMinutes += minutes;
@@ -207,11 +207,10 @@ export async function getHeatmapData() {
     if (session.courseId) {
       const course = courseMap.get(session.courseId);
       if (course) {
-        const existing = dayMap[dateKey].courses.find(c => c.name === course.name);
-        if (existing) {
-          existing.minutes += minutes;
+        if (dayMap[dateKey].courses[session.courseId]) {
+          dayMap[dateKey].courses[session.courseId].minutes += minutes;
         } else {
-          dayMap[dateKey].courses.push({ name: course.name, color: course.color, minutes });
+          dayMap[dateKey].courses[session.courseId] = { name: course.name, color: course.color, minutes };
         }
       }
     }
