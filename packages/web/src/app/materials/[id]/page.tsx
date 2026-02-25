@@ -55,14 +55,14 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
 
       {/* Completion & Navigation */}
       {material.step && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b">
           <StepCompleteButton
             stepId={material.step.id}
             isCompleted={material.step.isCompleted}
           />
           <div className="flex gap-3">
             {material.prevStep && (
-              <Button variant="outline" asChild>
+              <Button variant="outline" className="flex-1 sm:flex-initial" asChild>
                 <Link href={getStepUrl(material.prevStep)}>
                   <ChevronLeft className="mr-1 h-4 w-4" />
                   Previous
@@ -70,7 +70,7 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
               </Button>
             )}
             {material.nextStep && (
-              <Button asChild>
+              <Button className="flex-1 sm:flex-initial" asChild>
                 <Link href={getStepUrl(material.nextStep)}>
                   Next
                   <ChevronRight className="ml-1 h-4 w-4" />

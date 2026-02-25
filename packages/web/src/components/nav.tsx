@@ -106,12 +106,6 @@ export function Nav() {
               </Link>
             );
           })}
-          <div className="flex items-center justify-center py-3 px-4">
-            <NotificationToggle />
-          </div>
-          <div className="flex items-center justify-center py-3 px-4">
-            <ThemeToggle />
-          </div>
           <button
             onClick={handleLogout}
             className="flex flex-col items-center justify-center py-3 px-4 text-xs flex-1 transition-colors text-muted-foreground"

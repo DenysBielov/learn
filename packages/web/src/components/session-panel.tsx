@@ -11,6 +11,7 @@ import {
 import { SessionChat } from "./session-chat";
 import { SessionNotes } from "./session-notes";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeDismiss } from "@/hooks/use-swipe-dismiss";
 
 const STORAGE_KEY = "session-panel-collapsed";
 const STORAGE_KEY_WIDTH = "session-panel-width";
@@ -52,6 +53,8 @@ export function SessionPanel({
   const [isResizing, setIsResizing] = useState(false);
   const unreadTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const isMobile = useIsMobile();
+  const closeMobileSheet = useCallback(() => setMobileOpen(false), []);
+  const { sheetRef: mobileSheetRef, handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeDismiss(closeMobileSheet);
 
   // Ref to track collapsed state for the stable handleNewMessage callback
   const collapsedRef = useRef(collapsed);
@@ -261,11 +264,20 @@ export function SessionPanel({
       {/* Mobile sheet */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 h-[85dvh] bg-background rounded-t-lg border-t flex flex-col animate-in slide-in-from-bottom duration-200">
-            <button onClick={() => setMobileOpen(false)} className="flex justify-center py-2 cursor-pointer">
+          <div className="absolute inset-0 bg-black/50" onClick={closeMobileSheet} />
+          <div
+            ref={mobileSheetRef}
+            className="absolute inset-x-0 bottom-0 h-[85dvh] bg-background rounded-t-lg border-t flex flex-col animate-in slide-in-from-bottom duration-200"
+          >
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onClick={closeMobileSheet}
+              className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+            >
               <div className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
-            </button>
+            </div>
             {chatContent}
           </div>
         </div>

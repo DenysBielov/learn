@@ -8,6 +8,7 @@ import { MaterialDetailsTab } from "./material-details-tab";
 import { MaterialChat } from "./material-chat";
 import { MaterialNotes } from "./material-notes";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeDismiss } from "@/hooks/use-swipe-dismiss";
 
 const STORAGE_KEY = "material-panel-collapsed";
 const STORAGE_KEY_WIDTH = "material-panel-width";
@@ -51,6 +52,8 @@ export function MaterialPanel({
   const [isResizing, setIsResizing] = useState(false);
   const unreadTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const isMobile = useIsMobile();
+  const closeMobileSheet = useCallback(() => setMobileOpen(false), []);
+  const { sheetRef: mobileSheetRef, handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeDismiss(closeMobileSheet);
 
   const collapsedRef = useRef(collapsed);
   useEffect(() => {
@@ -269,15 +272,21 @@ export function MaterialPanel({
         <div className="fixed inset-0 z-50 md:hidden">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => setMobileOpen(false)}
+            onClick={closeMobileSheet}
           />
-          <div className="absolute inset-x-0 bottom-0 h-[85dvh] bg-background rounded-t-lg border-t flex flex-col animate-in slide-in-from-bottom duration-200">
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="flex justify-center py-2 cursor-pointer"
+          <div
+            ref={mobileSheetRef}
+            className="absolute inset-x-0 bottom-0 h-[85dvh] bg-background rounded-t-lg border-t flex flex-col animate-in slide-in-from-bottom duration-200"
+          >
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onClick={closeMobileSheet}
+              className="flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
             >
               <div className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
-            </button>
+            </div>
             {panelContent}
           </div>
         </div>
