@@ -457,11 +457,10 @@ export async function getCourseTreeChildren(courseId: number) {
 
   // Get direct decks
   const deckRows = db.all<{
-    deck_id: number; name: string; flashcard_count: number; question_count: number; due_count: number;
+    deck_id: number; name: string; flashcard_count: number; due_count: number;
   }>(sql`
     SELECT cd.deck_id, d.name,
       (SELECT COUNT(*) FROM flashcard f WHERE f.deck_id = d.id) AS flashcard_count,
-      (SELECT COUNT(*) FROM quiz_question qq WHERE qq.deck_id = d.id) AS question_count,
       (SELECT COUNT(*) FROM flashcard f WHERE f.deck_id = d.id AND f.next_review_at <= unixepoch()) AS due_count
     FROM course_deck cd
     JOIN deck d ON d.id = cd.deck_id
@@ -495,7 +494,6 @@ export async function getCourseTreeChildren(courseId: number) {
     decks: deckRows.map(d => ({
       deckId: d.deck_id, name: d.name,
       flashcardCount: d.flashcard_count,
-      questionCount: d.question_count,
       dueCount: d.due_count,
     })),
     children: children.map(c => ({

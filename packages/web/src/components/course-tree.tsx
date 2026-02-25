@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export type TreeItem =
   | { type: "step"; id: number; stepType: "material" | "quiz"; title: string; materialId: number | null; quizId: number | null; isCompleted: boolean }
-  | { type: "deck"; deckId: number; name: string; flashcardCount: number; questionCount: number; dueCount: number }
+  | { type: "deck"; deckId: number; name: string; flashcardCount: number; dueCount: number }
   | { type: "subcourse"; id: number; name: string; color: string; isActive: boolean; totalDecks: number; dueCards: number; description: string | null; estimatedHours: number | null };
 
 interface CourseTreeProps {
@@ -139,22 +139,17 @@ export function CourseTree({
             )}
             style={{ paddingLeft: `${indentPx + 12}px` }}
           >
-            {/* Status indicator for steps */}
-            {item.type === "step" && (
-              <div className="shrink-0">
-                {item.isCompleted ? (
-                  <div className="h-5 w-5 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-green-400" />
-                  </div>
-                ) : (
-                  <div className="h-5 w-5 rounded-full bg-muted/30 border border-muted-foreground/20 flex items-center justify-center">
-                    <Circle className="h-2.5 w-2.5 text-muted-foreground/50" />
+            {/* Icon for all item types */}
+            {item.type === "step" ? (
+              <div className="shrink-0 relative">
+                <Icon className={cn("h-4 w-4", item.isCompleted ? "text-green-400" : "text-muted-foreground")} />
+                {item.isCompleted && (
+                  <div className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border border-background flex items-center justify-center">
+                    <Check className="h-1.5 w-1.5 text-white" />
                   </div>
                 )}
               </div>
-            )}
-
-            {item.type !== "step" && (
+            ) : (
               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
             )}
 

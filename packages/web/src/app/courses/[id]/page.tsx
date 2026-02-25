@@ -48,7 +48,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
       deckId: d.deckId,
       name: d.name,
       flashcardCount: d.flashcardCount,
-      questionCount: d.questionCount,
       dueCount: d.dueCount,
     })),
     // Then sub-courses

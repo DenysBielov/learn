@@ -162,14 +162,10 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
           </Button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="bg-card border rounded-[10px] p-3 text-center">
             <div className="text-lg font-bold">{item.flashcardCount}</div>
             <div className="text-xs text-muted-foreground">Cards</div>
-          </div>
-          <div className="bg-card border rounded-[10px] p-3 text-center">
-            <div className="text-lg font-bold">{item.questionCount}</div>
-            <div className="text-xs text-muted-foreground">Questions</div>
           </div>
           <div className="bg-card border rounded-[10px] p-3 text-center">
             <div className="text-lg font-bold text-orange-400">{item.dueCount}</div>
