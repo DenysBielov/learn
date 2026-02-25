@@ -187,32 +187,46 @@ export async function getHeatmapData() {
     courses: Record<number, { name: string; color: string; minutes: number }>;
   }> = {};
 
-  for (const session of sessions) {
-    const d = new Date(session.startedAt);
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-    let minutes: number;
-    if (session.startedAt && session.completedAt) {
-      minutes = (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000;
-    } else {
-      minutes = 30; // default for active sessions
-    }
-
+  function addMinutesToDay(dateKey: string, minutes: number, courseId: number | null) {
     if (!dayMap[dateKey]) {
       dayMap[dateKey] = { totalMinutes: 0, courses: {} };
     }
-
     dayMap[dateKey].totalMinutes += minutes;
-
-    if (session.courseId) {
-      const course = courseMap.get(session.courseId);
+    if (courseId) {
+      const course = courseMap.get(courseId);
       if (course) {
-        if (dayMap[dateKey].courses[session.courseId]) {
-          dayMap[dateKey].courses[session.courseId].minutes += minutes;
+        if (dayMap[dateKey].courses[courseId]) {
+          dayMap[dateKey].courses[courseId].minutes += minutes;
         } else {
-          dayMap[dateKey].courses[session.courseId] = { name: course.name, color: course.color, minutes };
+          dayMap[dateKey].courses[courseId] = { name: course.name, color: course.color, minutes };
         }
       }
+    }
+  }
+
+  function toDateKey(d: Date) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  for (const session of sessions) {
+    const start = new Date(session.startedAt);
+    const end = session.completedAt ? new Date(session.completedAt) : null;
+
+    if (!end) {
+      // Active session: default 30min on start day
+      addMinutesToDay(toDateKey(start), 30, session.courseId);
+      continue;
+    }
+
+    // Split across days if session spans midnight
+    let cursor = new Date(start);
+    while (cursor < end) {
+      const dayEnd = new Date(cursor);
+      dayEnd.setHours(23, 59, 59, 999);
+      const segmentEnd = dayEnd < end ? new Date(dayEnd.getTime() + 1) : end;
+      const minutes = (segmentEnd.getTime() - cursor.getTime()) / 60000;
+      addMinutesToDay(toDateKey(cursor), minutes, session.courseId);
+      cursor = new Date(dayEnd.getTime() + 1); // start of next day
     }
   }
 

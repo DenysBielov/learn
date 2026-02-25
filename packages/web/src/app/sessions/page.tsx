@@ -19,9 +19,6 @@ export default async function SessionsPage() {
       {/* Header */}
       <h1 className="text-xl font-bold">Sessions</h1>
 
-      {/* Heatmap */}
-      <SessionHeatmap dayMap={heatmap.dayMap} courses={heatmap.courses} />
-
       {/* Stats bar */}
       <div className="flex items-center">
         <div className="flex-1 text-center">
@@ -51,6 +48,9 @@ export default async function SessionsPage() {
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Streak</div>
         </div>
       </div>
+
+      {/* Heatmap */}
+      <SessionHeatmap dayMap={heatmap.dayMap} courses={heatmap.courses} />
 
       {/* Sessions list */}
       <SessionsList

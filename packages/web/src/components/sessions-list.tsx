@@ -263,7 +263,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
       <div className="flex flex-wrap items-center gap-2">
         <Select value={mode} onValueChange={handleModeChange}>
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Mode" />
+            <SelectValue placeholder="All modes" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All modes</SelectItem>
@@ -275,7 +275,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
         <Select value={courseId} onValueChange={handleCourseChange}>
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Course" />
+            <SelectValue placeholder="All courses" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All courses</SelectItem>
@@ -293,7 +293,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
         <Select value={dateRange} onValueChange={handleDateChange}>
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Date range" />
+            <SelectValue placeholder="All time" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All time</SelectItem>
@@ -306,7 +306,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
         <Select value={status} onValueChange={handleStatusChange}>
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="All status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All status</SelectItem>
@@ -317,7 +317,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
         <Select value={sort} onValueChange={handleSortChange}>
           <SelectTrigger size="sm" className="ml-auto">
-            <SelectValue placeholder="Sort" />
+            <SelectValue placeholder="Newest first" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="newest">Newest first</SelectItem>
