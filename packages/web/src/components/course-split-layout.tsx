@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { CourseTree, getItemId, type TreeItem } from "@/components/course-tree";
 import { CourseDetailPanel } from "@/components/course-detail-panel";
@@ -49,6 +51,23 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
     }
   }, [expandedChildren]);
 
+  const router = useRouter();
+  const isMobile = useIsMobile();
+
+  const handleNavigate = useCallback((item: TreeItem) => {
+    if (item.type === "subcourse") {
+      router.push(`/courses/${item.id}`);
+    } else if (item.type === "step") {
+      if (item.stepType === "material" && item.materialId) {
+        router.push(`/materials/${item.materialId}`);
+      } else if (item.stepType === "quiz" && item.quizId) {
+        router.push(`/quizzes/${item.quizId}`);
+      }
+    } else if (item.type === "deck") {
+      router.push(`/decks/${item.deckId}`);
+    }
+  }, [router]);
+
   return (
     <>
       {/* Desktop: Resizable split */}
@@ -78,21 +97,17 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
         </ResizablePanelGroup>
       </div>
 
-      {/* Mobile: stacked list */}
+      {/* Mobile: navigate on tap */}
       <div className="md:hidden">
         <CourseTree
           items={items}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          expandedChildren={expandedChildren}
-          loadingIds={loadingIds}
-          onToggleExpand={handleToggleExpand}
+          selectedId={null}
+          onSelect={() => {}}
+          onNavigate={handleNavigate}
+          expandedChildren={{}}
+          loadingIds={new Set()}
+          onToggleExpand={() => {}}
         />
-        {selectedItem && (
-          <div className="mt-4 bg-card border rounded-[10px]">
-            <CourseDetailPanel item={selectedItem} />
-          </div>
-        )}
       </div>
     </>
   );
