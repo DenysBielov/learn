@@ -60,6 +60,7 @@ export const materials = sqliteTable("material", {
   title: text("title").notNull(),
   content: text("content"),
   externalUrl: text("external_url"),
+  notes: text("notes"),
   userId: integer("user_id").notNull().references(() => users.id),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
@@ -267,12 +268,20 @@ export const chatConversations = sqliteTable("chat_conversation", {
   flashcardId: integer("flashcard_id").references(() => flashcards.id, { onDelete: "cascade" }),
   questionId: integer("question_id").references(() => quizQuestions.id, { onDelete: "cascade" }),
   sessionId: integer("session_id").references(() => studySessions.id, { onDelete: "cascade" }),
+  materialId: integer("material_id").references(() => materials.id, { onDelete: "cascade" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   uniqueIndex("idx_conv_user_flashcard").on(table.userId, table.flashcardId).where(sql`${table.flashcardId} IS NOT NULL`),
   uniqueIndex("idx_conv_user_question").on(table.userId, table.questionId).where(sql`${table.questionId} IS NOT NULL`),
   uniqueIndex("idx_conv_user_session").on(table.userId, table.sessionId).where(sql`${table.sessionId} IS NOT NULL`),
+  uniqueIndex("idx_conv_user_material").on(table.userId, table.materialId).where(sql`${table.materialId} IS NOT NULL`),
+  check("chk_conv_scope_exactly_one", sql`
+  (CASE WHEN ${table.flashcardId} IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN ${table.questionId} IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN ${table.sessionId} IS NOT NULL THEN 1 ELSE 0 END +
+   CASE WHEN ${table.materialId} IS NOT NULL THEN 1 ELSE 0 END) = 1
+`),
 ]);
 
 // --- ChatMessage ---
@@ -502,6 +511,7 @@ export const chatConversationRelations = relations(chatConversations, ({ one, ma
   flashcard: one(flashcards, { fields: [chatConversations.flashcardId], references: [flashcards.id] }),
   question: one(quizQuestions, { fields: [chatConversations.questionId], references: [quizQuestions.id] }),
   session: one(studySessions, { fields: [chatConversations.sessionId], references: [studySessions.id] }),
+  material: one(materials, { fields: [chatConversations.materialId], references: [materials.id] }),
   messages: many(chatMessages),
 }));
 
