@@ -17,12 +17,12 @@ const MAX_WIDTH = 600;
 const RAIL_WIDTH = 48;
 
 function getInitialCollapsed(): boolean {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") return false;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === null ? true : stored === "true";
+    return stored === null ? false : stored === "true";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -41,7 +41,7 @@ export function MaterialPanel({
   initialNotes,
   externalUrl,
 }: MaterialPanelProps) {
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "chat" | "notes">("details");
   const [hasUnread, setHasUnread] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
