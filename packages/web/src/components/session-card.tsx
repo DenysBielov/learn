@@ -1,7 +1,8 @@
 "use client";
 
-import { Clock, Layers, HelpCircle, FileText, Play } from "lucide-react";
+import { Clock, Layers, HelpCircle, FileText, Play, Square } from "lucide-react";
 import Link from "next/link";
+import { CloseSessionDialog } from "@/components/close-session-dialog";
 
 type SessionCardProps = {
   session: {
@@ -99,10 +100,21 @@ export function SessionCard({ session }: SessionCardProps) {
 
         {/* Footer */}
         {isActive && (
-          <div className="flex items-center text-xs">
+          <div className="flex items-center justify-between text-xs">
             <span className="inline-flex items-center gap-1 text-foreground/60 hover:text-foreground/80">
               <Play className="h-3 w-3" /> Continue studying
             </span>
+            <div onClick={(e) => e.preventDefault()}>
+              <CloseSessionDialog
+                sessionId={session.id}
+                startedAt={session.startedAt}
+                trigger={
+                  <button className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors">
+                    <Square className="h-3 w-3" /> Close
+                  </button>
+                }
+              />
+            </div>
           </div>
         )}
       </div>

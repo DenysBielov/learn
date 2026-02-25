@@ -234,11 +234,12 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
     {
       sessionId: z.number().int().positive(),
       summary: z.string().max(10000).optional(),
+      completedAt: z.string().datetime().optional().describe("ISO 8601 timestamp for when the session ended. Must be after startedAt and not in the future. Defaults to now."),
     },
-    async ({ sessionId, summary }) => {
+    async ({ sessionId, summary, completedAt }) => {
       try {
         const session = db
-          .select({ id: studySessions.id, completedAt: studySessions.completedAt })
+          .select({ id: studySessions.id, completedAt: studySessions.completedAt, startedAt: studySessions.startedAt })
           .from(studySessions)
           .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
           .get();
@@ -257,8 +258,25 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
           };
         }
 
+        const endTime = completedAt ? new Date(completedAt) : new Date();
+
+        if (completedAt) {
+          if (endTime <= new Date(session.startedAt)) {
+            return {
+              content: [{ type: "text" as const, text: "End time must be after session start time" }],
+              isError: true,
+            };
+          }
+          if (endTime > new Date()) {
+            return {
+              content: [{ type: "text" as const, text: "End time cannot be in the future" }],
+              isError: true,
+            };
+          }
+        }
+
         const updates: Record<string, unknown> = {
-          completedAt: new Date(),
+          completedAt: endTime,
         };
         if (summary !== undefined) {
           updates.summary = summary;

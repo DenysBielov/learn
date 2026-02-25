@@ -5,6 +5,8 @@ import {
   ArrowLeft, Clock, Layers, HelpCircle, CheckCircle2,
   XCircle, FileText, Target
 } from "lucide-react";
+import { CloseSessionDialog } from "@/components/close-session-dialog";
+import { Button } from "@/components/ui/button";
 
 export const metadata = {
   title: "Session Detail — Flashcards",
@@ -49,29 +51,38 @@ export default async function SessionDetailPage({
       </Link>
 
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold mb-2">
-          {session.summary || session.deckName || "Study Session"}
-        </h1>
-        <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
-          <span>{dateStr} at {timeStr}</span>
-          {duration !== null && (
-            <>
-              <span className="text-muted-foreground/40">·</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {duration}m
-              </span>
-            </>
-          )}
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border ${
-            isActive
-              ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
-              : "text-green-400 bg-green-500/10 border-green-500/20"
-          }`}>
-            {isActive ? "Active" : "Completed"}
-          </span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold mb-2">
+            {session.summary || session.deckName || "Study Session"}
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
+            <span>{dateStr} at {timeStr}</span>
+            {duration !== null && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  {duration}m
+                </span>
+              </>
+            )}
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border ${
+              isActive
+                ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+                : "text-green-400 bg-green-500/10 border-green-500/20"
+            }`}>
+              {isActive ? "Active" : "Completed"}
+            </span>
+          </div>
         </div>
+        {isActive && (
+          <CloseSessionDialog
+            sessionId={session.id}
+            startedAt={session.startedAt}
+            trigger={<Button variant="outline" size="sm">Close Session</Button>}
+          />
+        )}
       </div>
 
       {/* Two-column layout */}

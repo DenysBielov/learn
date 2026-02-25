@@ -212,20 +212,34 @@ export async function startStudySession(deckId: number, mode: "flashcard" | "qui
   return session;
 }
 
-export async function completeStudySession(sessionId: number) {
+export async function completeStudySession(sessionId: number, completedAt?: Date) {
   const { userId } = await requireAuth();
   const db = getDb();
   writeTransaction(db, () => {
     const session = db.select({
       id: studySessions.id,
       quizId: studySessions.quizId,
+      startedAt: studySessions.startedAt,
+      completedAt: studySessions.completedAt,
     }).from(studySessions)
       .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
       .get();
     if (!session) throw new Error("Session not found");
+    if (session.completedAt) throw new Error("Session is already completed");
+
+    const resolvedCompletedAt = completedAt ?? new Date();
+
+    if (completedAt) {
+      if (resolvedCompletedAt <= session.startedAt) {
+        throw new Error("Completed time must be after session start time");
+      }
+      if (resolvedCompletedAt > new Date()) {
+        throw new Error("Completed time must not be in the future");
+      }
+    }
 
     db.update(studySessions)
-      .set({ completedAt: new Date() })
+      .set({ completedAt: resolvedCompletedAt })
       .where(eq(studySessions.id, sessionId))
       .run();
 
