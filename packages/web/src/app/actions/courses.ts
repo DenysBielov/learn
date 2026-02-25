@@ -67,6 +67,7 @@ export async function getCourse(id: number) {
     color: courses.color,
     isActive: courses.isActive,
     position: courses.position,
+    estimatedHours: courses.estimatedHours,
     totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
     dueCards: sql<number>`(SELECT COUNT(*) FROM course_deck cd INNER JOIN flashcard f ON f.deck_id = cd.deck_id WHERE cd.course_id = "course"."id" AND f.next_review_at <= unixepoch())`,
   }).from(courses)

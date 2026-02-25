@@ -60,6 +60,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
       isActive: c.isActive,
       totalDecks: c.totalDecks,
       dueCards: c.dueCards,
+      description: c.description ?? null,
+      estimatedHours: c.estimatedHours ?? null,
     })),
   ];
 

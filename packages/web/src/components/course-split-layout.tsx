@@ -1,26 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { CourseTree, type TreeItem } from "@/components/course-tree";
+import { CourseTree, getItemId, type TreeItem } from "@/components/course-tree";
 import { CourseDetailPanel } from "@/components/course-detail-panel";
+import { getCourseTreeChildren } from "@/app/actions/courses";
 
 interface CourseSplitLayoutProps {
   items: TreeItem[];
-}
-
-function getItemId(item: TreeItem): string {
-  if (item.type === "step") return `step-${item.id}`;
-  if (item.type === "deck") return `deck-${item.deckId}`;
-  return `course-${item.id}`;
 }
 
 export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     items.length > 0 ? getItemId(items[0]) : null
   );
+  const [expandedChildren, setExpandedChildren] = useState<Record<string, TreeItem[]>>({});
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
-  const selectedItem = items.find(item => getItemId(item) === selectedId) ?? null;
+  const allItems = Object.values(expandedChildren).flat();
+  const selectedItem =
+    [...items, ...allItems].find((item) => getItemId(item) === selectedId) ?? null;
+
+  const handleToggleExpand = useCallback(async (courseId: number) => {
+    const key = `course-${courseId}`;
+    if (expandedChildren[key]) {
+      setExpandedChildren((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+    setLoadingIds((prev) => new Set(prev).add(key));
+    try {
+      const data = await getCourseTreeChildren(courseId);
+      const childItems: TreeItem[] = [
+        ...data.steps.map((s) => ({ type: "step" as const, ...s })),
+        ...data.decks.map((d) => ({ type: "deck" as const, ...d })),
+        ...data.children.map((c) => ({ type: "subcourse" as const, ...c })),
+      ];
+      setExpandedChildren((prev) => ({ ...prev, [key]: childItems }));
+    } finally {
+      setLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, [expandedChildren]);
 
   return (
     <>
@@ -32,7 +59,14 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
               <div className="px-3 py-2 border-b">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Course Content</h3>
               </div>
-              <CourseTree items={items} selectedId={selectedId} onSelect={setSelectedId} />
+              <CourseTree
+                items={items}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                expandedChildren={expandedChildren}
+                loadingIds={loadingIds}
+                onToggleExpand={handleToggleExpand}
+              />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -46,7 +80,14 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
 
       {/* Mobile: stacked list */}
       <div className="md:hidden">
-        <CourseTree items={items} selectedId={selectedId} onSelect={setSelectedId} />
+        <CourseTree
+          items={items}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          expandedChildren={expandedChildren}
+          loadingIds={loadingIds}
+          onToggleExpand={handleToggleExpand}
+        />
         {selectedItem && (
           <div className="mt-4 bg-card border rounded-[10px]">
             <CourseDetailPanel item={selectedItem} />
