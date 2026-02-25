@@ -30,6 +30,7 @@ interface MaterialPanelProps {
   materialId: number;
   linkedDecks: Array<{ id: number; name: string; flashcardCount: number }>;
   linkedQuizzes: Array<{ id: number; title: string }>;
+  resources: Array<{ id: number; url: string; title: string | null; type: string }>;
   initialNotes: string | null;
   externalUrl: string | null;
 }
@@ -38,6 +39,7 @@ export function MaterialPanel({
   materialId,
   linkedDecks,
   linkedQuizzes,
+  resources,
   initialNotes,
   externalUrl,
 }: MaterialPanelProps) {
@@ -154,6 +156,7 @@ export function MaterialPanel({
         <MaterialDetailsTab
           linkedDecks={linkedDecks}
           linkedQuizzes={linkedQuizzes}
+          resources={resources}
           externalUrl={externalUrl}
         />
       </TabsContent>

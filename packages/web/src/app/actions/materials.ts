@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb, writeTransaction } from "@flashcards/database";
-import { materials, courseSteps, courses, stepProgress, materialDecks, materialQuizzes, decks, quizzes } from "@flashcards/database/schema";
+import { materials, courseSteps, courses, stepProgress, materialDecks, materialQuizzes, materialResources, decks, quizzes } from "@flashcards/database/schema";
 import { createMaterialSchema, updateMaterialSchema } from "@flashcards/database/validation";
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { cleanupDependenciesForMaterial } from "@flashcards/database/dependencies";
@@ -189,6 +189,17 @@ export async function getMaterial(id: number) {
     .where(eq(materialQuizzes.materialId, id))
     .all();
 
+  // Resources
+  const resources = db.select({
+    id: materialResources.id,
+    url: materialResources.url,
+    title: materialResources.title,
+    type: materialResources.type,
+  }).from(materialResources)
+    .where(eq(materialResources.materialId, id))
+    .orderBy(materialResources.createdAt)
+    .all();
+
   return {
     ...material,
     step: step ? {
@@ -203,6 +214,7 @@ export async function getMaterial(id: number) {
     nextStep: nextStep ?? null,
     linkedDecks,
     linkedQuizzes,
+    resources,
   };
 }
 

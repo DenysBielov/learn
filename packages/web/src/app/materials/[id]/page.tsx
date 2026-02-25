@@ -106,6 +106,7 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
         materialId={materialId}
         linkedDecks={material.linkedDecks}
         linkedQuizzes={material.linkedQuizzes}
+        resources={material.resources}
         initialNotes={material.notes ?? null}
         externalUrl={material.externalUrl ?? null}
       />
