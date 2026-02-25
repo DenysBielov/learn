@@ -63,20 +63,9 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
         </h1>
       </div>
 
-      {/* Content */}
-      <div className="flex-1">
-        {material.content ? (
-          <div className="prose prose-neutral dark:prose-invert max-w-none">
-            <RichContent content={material.content} />
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm">No content available</p>
-        )}
-      </div>
-
       {/* Completion & Navigation */}
       {material.step && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b">
           <StepCompleteButton
             stepId={material.step.id}
             isCompleted={material.step.isCompleted}
@@ -102,6 +91,17 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
           </div>
         </div>
       )}
+
+      {/* Content */}
+      <div className="flex-1">
+        {material.content ? (
+          <div className="prose prose-neutral dark:prose-invert max-w-none">
+            <RichContent content={material.content} />
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">No content available</p>
+        )}
+      </div>
     </div>
   );
 
@@ -156,18 +156,9 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
             <h1 className="text-2xl font-bold tracking-tight">{material.title}</h1>
           </div>
 
-          {/* Content */}
-          {material.content ? (
-            <div className="prose prose-neutral dark:prose-invert max-w-none">
-              <RichContent content={material.content} />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">No content available</p>
-          )}
-
           {/* Completion & Navigation */}
           {material.step && (
-            <div className="flex flex-col items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex flex-col items-center justify-between gap-4 pb-4 border-b">
               <StepCompleteButton
                 stepId={material.step.id}
                 isCompleted={material.step.isCompleted}
@@ -191,6 +182,15 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Content */}
+          {material.content ? (
+            <div className="prose prose-neutral dark:prose-invert max-w-none">
+              <RichContent content={material.content} />
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">No content available</p>
           )}
         </div>
 

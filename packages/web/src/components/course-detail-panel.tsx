@@ -46,6 +46,19 @@ function MaterialStepPanel({ item }: { item: Extract<TreeItem, { type: "step" }>
         </div>
       </div>
 
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button asChild size="sm">
+          <Link href={href}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            {item.stepType === "material" ? "Open Material" : "Take Quiz"}
+          </Link>
+        </Button>
+        {material?.step && (
+          <StepCompleteButton stepId={material.step.id} isCompleted={material.step.isCompleted} />
+        )}
+      </div>
+
       {/* Material content */}
       {item.stepType === "material" && item.materialId && (
         <>
@@ -87,11 +100,6 @@ function MaterialStepPanel({ item }: { item: Extract<TreeItem, { type: "step" }>
                   ))}
                 </div>
               )}
-
-              {/* Completion toggle */}
-              {material.step && (
-                <StepCompleteButton stepId={material.step.id} isCompleted={material.step.isCompleted} />
-              )}
             </>
           ) : null}
         </>
@@ -109,15 +117,6 @@ function MaterialStepPanel({ item }: { item: Extract<TreeItem, { type: "step" }>
           </span>
         </div>
       )}
-
-      <div className="pt-2">
-        <Button asChild size="sm">
-          <Link href={href}>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            {item.stepType === "material" ? "Open Material" : "Take Quiz"}
-          </Link>
-        </Button>
-      </div>
     </div>
   );
 }
@@ -148,21 +147,6 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-card border rounded-[10px] p-3 text-center">
-            <div className="text-lg font-bold">{item.flashcardCount}</div>
-            <div className="text-xs text-muted-foreground">Cards</div>
-          </div>
-          <div className="bg-card border rounded-[10px] p-3 text-center">
-            <div className="text-lg font-bold">{item.questionCount}</div>
-            <div className="text-xs text-muted-foreground">Questions</div>
-          </div>
-          <div className="bg-card border rounded-[10px] p-3 text-center">
-            <div className="text-lg font-bold text-orange-400">{item.dueCount}</div>
-            <div className="text-xs text-muted-foreground">Due</div>
-          </div>
-        </div>
-
         <div className="flex gap-2">
           <Button asChild size="sm">
             <Link href={`/study/${item.deckId}`}>
@@ -176,6 +160,21 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
               View Deck
             </Link>
           </Button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-card border rounded-[10px] p-3 text-center">
+            <div className="text-lg font-bold">{item.flashcardCount}</div>
+            <div className="text-xs text-muted-foreground">Cards</div>
+          </div>
+          <div className="bg-card border rounded-[10px] p-3 text-center">
+            <div className="text-lg font-bold">{item.questionCount}</div>
+            <div className="text-xs text-muted-foreground">Questions</div>
+          </div>
+          <div className="bg-card border rounded-[10px] p-3 text-center">
+            <div className="text-lg font-bold text-orange-400">{item.dueCount}</div>
+            <div className="text-xs text-muted-foreground">Due</div>
+          </div>
         </div>
       </div>
     );
@@ -193,6 +192,13 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
           <span className="text-xs text-muted-foreground">Sub-Course</span>
         </div>
       </div>
+
+      <Button asChild size="sm">
+        <Link href={`/courses/${item.id}`}>
+          <ExternalLink className="mr-2 h-4 w-4" />
+          Open Course
+        </Link>
+      </Button>
 
       {item.description && (
         <p className="text-sm text-muted-foreground">{item.description}</p>
@@ -215,13 +221,6 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
           <div className="text-xs text-muted-foreground">Due Cards</div>
         </div>
       </div>
-
-      <Button asChild size="sm">
-        <Link href={`/courses/${item.id}`}>
-          <ExternalLink className="mr-2 h-4 w-4" />
-          Open Course
-        </Link>
-      </Button>
     </div>
   );
 }
