@@ -176,7 +176,7 @@ export function MaterialPanel({
       {/* Desktop sidebar */}
       <div
         ref={outerRef}
-        className={`hidden md:block flex-shrink-0 overflow-hidden ${isResizing ? "" : "transition-[width] duration-200 ease-in-out"}`}
+        className={`hidden md:block flex-shrink-0 h-full overflow-hidden ${isResizing ? "" : "transition-[width] duration-200 ease-in-out"}`}
         style={{ width: collapsed ? RAIL_WIDTH : width }}
       >
         <aside
