@@ -1,56 +1,63 @@
-import { getSessions, getSessionStats } from "@/app/actions/sessions";
-import { SessionCard } from "@/components/session-card";
-import { Clock, Calendar, Timer, TrendingUp } from "lucide-react";
+import { getHeatmapData, getFilteredSessions, getSessionStats, getUserCourses } from "@/app/actions/sessions";
+import { SessionHeatmap } from "@/components/session-heatmap";
+import { SessionsList } from "@/components/sessions-list";
 
 export const metadata = {
   title: "Sessions — Flashcards",
 };
 
 export default async function SessionsPage() {
-  const [sessions, stats] = await Promise.all([
-    getSessions(),
+  const [heatmap, stats, initialData, courses] = await Promise.all([
+    getHeatmapData(),
     getSessionStats(),
+    getFilteredSessions({}),
+    getUserCourses(),
   ]);
 
   return (
-    <div className="container mx-auto max-w-5xl p-4 sm:p-6 space-y-6">
+    <div className="container mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Sessions</h1>
-      </div>
+      <h1 className="text-xl font-bold">Sessions</h1>
+
+      {/* Heatmap */}
+      <SessionHeatmap dayMap={heatmap.dayMap} courses={heatmap.courses} />
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total Sessions", value: stats.totalSessions, icon: Calendar },
-          { label: "Total Time", value: `${Math.floor(stats.totalMinutes / 60)}h ${stats.totalMinutes % 60}m`, icon: Clock },
-          { label: "Avg Duration", value: `${stats.avgMinutes}m`, icon: Timer },
-          { label: "Today", value: stats.todaySessions, icon: TrendingUp },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-card border rounded-[10px] p-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <stat.icon className="h-3.5 w-3.5" />
-              {stat.label}
-            </div>
-            <div className="text-lg font-semibold">{stat.value}</div>
+      <div className="flex items-center">
+        <div className="flex-1 text-center">
+          <div className="text-xl font-semibold">{stats.totalSessions}</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Sessions</div>
+        </div>
+        <div className="w-px h-7 bg-border" />
+        <div className="flex-1 text-center">
+          <div className="text-xl font-semibold">
+            {Math.floor(stats.totalMinutes / 60)}h {stats.totalMinutes % 60}m
           </div>
-        ))}
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Time</div>
+        </div>
+        <div className="w-px h-7 bg-border" />
+        <div className="flex-1 text-center">
+          <div className="text-xl font-semibold">{stats.avgMinutes}m</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Duration</div>
+        </div>
+        <div className="w-px h-7 bg-border" />
+        <div className="flex-1 text-center">
+          <div className="text-xl font-semibold">{stats.todaySessions}</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</div>
+        </div>
+        <div className="w-px h-7 bg-border" />
+        <div className="flex-1 text-center">
+          <div className="text-xl font-semibold">{stats.streak} days</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Streak</div>
+        </div>
       </div>
 
-      {/* Session cards */}
-      {sessions.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Clock className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No study sessions yet</p>
-          <p className="text-xs mt-1">Start studying to see your sessions here</p>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {sessions.map((session) => (
-            <SessionCard key={session.id} session={session} />
-          ))}
-        </div>
-      )}
+      {/* Sessions list */}
+      <SessionsList
+        initialSessions={initialData.sessions}
+        initialNextCursor={initialData.nextCursor}
+        courses={courses}
+      />
     </div>
   );
 }
