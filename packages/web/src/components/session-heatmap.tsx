@@ -142,104 +142,106 @@ export function SessionHeatmap({ dayMap, courses }: Props) {
   }, [dayMap, courses]);
 
   return (
-    <div className="bg-card border rounded-[10px] p-4 overflow-x-auto">
-      {/* Month labels */}
-      <div className="flex mb-1" style={{ paddingLeft: 32 }}>
-        {(() => {
-          const elements: React.ReactNode[] = [];
-          for (let i = 0; i < monthLabels.length; i++) {
-            const current = monthLabels[i];
-            const next = monthLabels[i + 1];
-            const span = next ? next.col - current.col : weeks.length - current.col;
-            elements.push(
-              <span
-                key={current.label + current.col}
-                className="text-xs text-muted-foreground"
-                style={{ width: span * 14, flexShrink: 0 }}
-              >
-                {current.label}
-              </span>
-            );
-          }
-          return elements;
-        })()}
-      </div>
-
-      {/* Grid */}
-      <div className="flex gap-0">
-        {/* Day labels column */}
-        <div className="flex flex-col shrink-0" style={{ width: 32, gap: 2 }}>
-          {DAY_LABELS.map((label, i) => (
-            <div key={i} className="h-3 flex items-center">
-              <span className="text-xs text-muted-foreground leading-none">
-                {label}
-              </span>
-            </div>
-          ))}
+    <div className="bg-card border rounded-[10px] p-4">
+      <div className="overflow-x-auto">
+        {/* Month labels */}
+        <div className="flex mb-1" style={{ paddingLeft: 32 }}>
+          {(() => {
+            const elements: React.ReactNode[] = [];
+            for (let i = 0; i < monthLabels.length; i++) {
+              const current = monthLabels[i];
+              const next = monthLabels[i + 1];
+              const span = next ? next.col - current.col : weeks.length - current.col;
+              elements.push(
+                <span
+                  key={current.label + current.col}
+                  className="text-xs text-muted-foreground"
+                  style={{ width: span * 14, flexShrink: 0 }}
+                >
+                  {current.label}
+                </span>
+              );
+            }
+            return elements;
+          })()}
         </div>
 
-        {/* Week columns */}
-        <div className="flex" style={{ gap: 2 }}>
-          {weeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col" style={{ gap: 2 }}>
-              {Array.from({ length: 7 }).map((_, row) => {
-                const entry = week.find((d) => dayRow(d.date) === row);
-                if (!entry) {
-                  return <div key={row} className="w-3 h-3" />;
-                }
+        {/* Grid */}
+        <div className="flex gap-0 pb-2">
+          {/* Day labels column */}
+          <div className="flex flex-col shrink-0" style={{ width: 32, gap: 2 }}>
+            {DAY_LABELS.map((label, i) => (
+              <div key={i} className="h-3 flex items-center">
+                <span className="text-xs text-muted-foreground leading-none">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
 
-                const day = dayMap[entry.key];
-                const hasData = day && day.totalMinutes > 0;
-                const color = hasData ? getDominantColor(day) : undefined;
-                const alpha = hasData ? intensityAlpha(day.totalMinutes) : undefined;
-                const dateStr = entry.date.toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
+          {/* Week columns */}
+          <div className="flex" style={{ gap: 2 }}>
+            {weeks.map((week, wi) => (
+              <div key={wi} className="flex flex-col" style={{ gap: 2 }}>
+                {Array.from({ length: 7 }).map((_, row) => {
+                  const entry = week.find((d) => dayRow(d.date) === row);
+                  if (!entry) {
+                    return <div key={row} className="w-3 h-3" />;
+                  }
 
-                return (
-                  <div key={row} className="relative group">
-                    <div
-                      className={`w-3 h-3 rounded-sm ${!hasData ? "bg-foreground/[0.04]" : ""}`}
-                      style={
-                        hasData
-                          ? { backgroundColor: withOpacity(color!, alpha!) }
-                          : undefined
-                      }
-                    />
-                    {/* Tooltip */}
-                    <div className="hidden group-hover:block absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none">
-                      <div className="bg-popover border border-border rounded-md shadow-lg px-3 py-2 text-xs whitespace-nowrap">
-                        <div className="font-medium mb-1">{dateStr}</div>
-                        {hasData ? (
-                          <>
-                            <div className="text-muted-foreground mb-1">
-                              Total: {formatMinutes(day.totalMinutes)}
-                            </div>
-                            {Object.values(day.courses).map((c) => (
-                              <div key={c.name} className="flex items-center gap-1.5">
-                                <span
-                                  className="w-2 h-2 rounded-sm shrink-0"
-                                  style={{ backgroundColor: c.color }}
-                                />
-                                <span className="text-muted-foreground">
-                                  {c.name}: {formatMinutes(c.minutes)}
-                                </span>
+                  const day = dayMap[entry.key];
+                  const hasData = day && day.totalMinutes > 0;
+                  const color = hasData ? getDominantColor(day) : undefined;
+                  const alpha = hasData ? intensityAlpha(day.totalMinutes) : undefined;
+                  const dateStr = entry.date.toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+
+                  return (
+                    <div key={row} className="relative group">
+                      <div
+                        className={`w-3 h-3 rounded-sm ${!hasData ? "bg-foreground/[0.04]" : ""}`}
+                        style={
+                          hasData
+                            ? { backgroundColor: withOpacity(color!, alpha!) }
+                            : undefined
+                        }
+                      />
+                      {/* Tooltip — renders below to avoid clipping by scroll container */}
+                      <div className="hidden group-hover:block absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none">
+                        <div className="bg-popover border border-border rounded-md shadow-lg px-3 py-2 text-xs whitespace-nowrap">
+                          <div className="font-medium mb-1">{dateStr}</div>
+                          {hasData ? (
+                            <>
+                              <div className="text-muted-foreground mb-1">
+                                Total: {formatMinutes(day.totalMinutes)}
                               </div>
-                            ))}
-                          </>
-                        ) : (
-                          <div className="text-muted-foreground">No study</div>
-                        )}
+                              {Object.values(day.courses).map((c) => (
+                                <div key={c.name} className="flex items-center gap-1.5">
+                                  <span
+                                    className="w-2 h-2 rounded-sm shrink-0"
+                                    style={{ backgroundColor: c.color }}
+                                  />
+                                  <span className="text-muted-foreground">
+                                    {c.name}: {formatMinutes(c.minutes)}
+                                  </span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="text-muted-foreground">No study</div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

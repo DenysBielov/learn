@@ -15,37 +15,37 @@ export default async function SessionsPage() {
   ]);
 
   return (
-    <div className="container mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
+    <div className="container mx-auto max-w-5xl px-4 py-4 sm:p-6 space-y-5">
       {/* Header */}
-      <h1 className="text-xl font-bold">Sessions</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Sessions</h1>
 
       {/* Stats bar */}
       <div className="flex items-center">
         <div className="flex-1 text-center">
           <div className="text-xl font-semibold">{stats.totalSessions}</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Sessions</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Sessions</div>
         </div>
         <div className="w-px h-7 bg-border" />
         <div className="flex-1 text-center">
           <div className="text-xl font-semibold">
             {Math.floor(stats.totalMinutes / 60)}h {stats.totalMinutes % 60}m
           </div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Time</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Total Time</div>
         </div>
         <div className="w-px h-7 bg-border" />
         <div className="flex-1 text-center">
           <div className="text-xl font-semibold">{stats.avgMinutes}m</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg Duration</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Avg Duration</div>
         </div>
         <div className="w-px h-7 bg-border" />
         <div className="flex-1 text-center">
           <div className="text-xl font-semibold">{stats.todaySessions}</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Today</div>
         </div>
         <div className="w-px h-7 bg-border" />
         <div className="flex-1 text-center">
           <div className="text-xl font-semibold">{stats.streak} days</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Streak</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Streak</div>
         </div>
       </div>
 

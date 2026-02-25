@@ -44,6 +44,12 @@ export async function getSessions() {
   });
 }
 
+const MAX_SESSION_MINUTES = 240; // Cap at 4h to exclude sessions left open by accident
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export async function getSessionStats() {
   const { userId } = await requireAuth();
   const db = getDb();
@@ -53,39 +59,56 @@ export async function getSessionStats() {
     .all();
 
   const totalSessions = allSessions.length;
-  const totalMinutes = allSessions.reduce((acc, s) => {
-    if (s.startedAt && s.completedAt) {
-      return acc + (new Date(s.completedAt).getTime() - new Date(s.startedAt).getTime()) / 60000;
-    }
-    return acc;
-  }, 0);
 
+  // Duration stats: only completed sessions, capped to avoid outliers
+  let completedCount = 0;
+  let totalMinutes = 0;
+  for (const s of allSessions) {
+    if (s.startedAt && s.completedAt) {
+      completedCount++;
+      const raw = (new Date(s.completedAt).getTime() - new Date(s.startedAt).getTime()) / 60000;
+      totalMinutes += Math.min(raw, MAX_SESSION_MINUTES);
+    }
+  }
+
+  // Today: sessions started or completed today, or currently active
+  const today = new Date();
+  const todayStr = today.toDateString();
   const todaySessions = allSessions.filter(s => {
-    const d = new Date(s.startedAt);
-    const today = new Date();
-    return d.toDateString() === today.toDateString();
+    if (new Date(s.startedAt).toDateString() === todayStr) return true;
+    if (s.completedAt && new Date(s.completedAt).toDateString() === todayStr) return true;
+    if (!s.completedAt) return true; // active sessions count for today
+    return false;
   }).length;
 
-  // Compute streak: consecutive days with sessions, counting backwards from today
-  const sessionDates = new Set(
-    allSessions.map(s => {
-      const d = new Date(s.startedAt);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    })
-  );
+  // Streak: consecutive days where a completed session was active
+  // Multi-day sessions fill every day they spanned (start→completion)
+  const sessionDates = new Set<string>();
+  for (const s of allSessions) {
+    if (!s.completedAt) continue; // only completed sessions count for streak
+    const start = new Date(s.startedAt);
+    const end = new Date(s.completedAt);
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(end);
+    endDay.setHours(0, 0, 0, 0);
+    while (cursor <= endDay) {
+      sessionDates.add(toDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
 
   let streak = 0;
-  const now = new Date();
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayKey = toDateKey(today);
 
   // Start from today if there's a session today, otherwise from yesterday
-  let checkDate = new Date(now);
+  let checkDate = new Date(today);
   if (!sessionDates.has(todayKey)) {
     checkDate.setDate(checkDate.getDate() - 1);
   }
 
   while (true) {
-    const key = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
+    const key = toDateKey(checkDate);
     if (sessionDates.has(key)) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
@@ -97,7 +120,7 @@ export async function getSessionStats() {
   return {
     totalSessions,
     totalMinutes: Math.round(totalMinutes),
-    avgMinutes: totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0,
+    avgMinutes: completedCount > 0 ? Math.round(totalMinutes / completedCount) : 0,
     todaySessions,
     streak,
   };
@@ -202,10 +225,6 @@ export async function getHeatmapData() {
         }
       }
     }
-  }
-
-  function toDateKey(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
   for (const session of sessions) {
