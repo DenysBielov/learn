@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb, writeTransaction } from "@flashcards/database";
-import { chatConversations, chatMessages } from "@flashcards/database/schema";
+import { chatConversations, chatMessages, materials } from "@flashcards/database/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
@@ -116,6 +116,50 @@ export async function deleteSessionChat(sessionId: number) {
   for (const imageUrl of imagesToDelete) {
     deleteImage(imageUrl);
   }
+}
+
+export async function getMaterialConversation(materialId: number): Promise<{
+  conversationId: number | null;
+  messages: ChatMessageData[];
+}> {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  // Verify material ownership
+  const material = db.select({ id: materials.id })
+    .from(materials)
+    .where(and(eq(materials.id, materialId), eq(materials.userId, userId)))
+    .get();
+  if (!material) throw new Error("Material not found");
+
+  const conversation = db.select({ id: chatConversations.id })
+    .from(chatConversations)
+    .where(and(
+      eq(chatConversations.userId, userId),
+      eq(chatConversations.materialId, materialId)
+    ))
+    .get();
+
+  if (!conversation) return { conversationId: null, messages: [] };
+
+  const messages = db.select({
+    id: chatMessages.id,
+    role: chatMessages.role,
+    content: chatMessages.content,
+    imageUrl: chatMessages.imageUrl,
+    createdAt: chatMessages.createdAt,
+  }).from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversation.id))
+    .orderBy(chatMessages.createdAt)
+    .all();
+
+  return {
+    conversationId: conversation.id,
+    messages: messages.map(m => ({
+      ...m,
+      role: m.role as "user" | "assistant",
+    })),
+  };
 }
 
 export async function getSessionChatMessages(sessionId: number): Promise<string[]> {

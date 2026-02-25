@@ -103,6 +103,18 @@ export async function deleteMaterial(id: number) {
   revalidatePath("/");
 }
 
+export async function updateMaterialNotes(materialId: number, notes: string) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  writeTransaction(db, () =>
+    db.update(materials)
+      .set({ notes, updatedAt: new Date() })
+      .where(and(eq(materials.id, materialId), eq(materials.userId, userId)))
+      .run()
+  );
+}
+
 export async function getMaterial(id: number) {
   const { userId } = await requireAuth();
   const db = getDb();
@@ -189,6 +201,60 @@ export async function getMaterial(id: number) {
     } : null,
     prevStep: prevStep ?? null,
     nextStep: nextStep ?? null,
+    linkedDecks,
+    linkedQuizzes,
+  };
+}
+
+export async function getMaterialForPanel(materialId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const material = db.select({
+    id: materials.id,
+    title: materials.title,
+    content: materials.content,
+    externalUrl: materials.externalUrl,
+  }).from(materials)
+    .where(and(eq(materials.id, materialId), eq(materials.userId, userId)))
+    .get();
+
+  if (!material) return null;
+
+  // Get step completion state (if this material is in a course)
+  const step = db.select({
+    id: courseSteps.id,
+    isCompleted: stepProgress.isCompleted,
+  }).from(courseSteps)
+    .leftJoin(stepProgress, and(
+      eq(stepProgress.courseStepId, courseSteps.id),
+      eq(stepProgress.userId, userId)
+    ))
+    .where(eq(courseSteps.materialId, materialId))
+    .get();
+
+  // Linked decks
+  const linkedDecks = db.select({
+    id: decks.id,
+    name: decks.name,
+    flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE deck_id = ${decks.id})`,
+  }).from(materialDecks)
+    .innerJoin(decks, eq(decks.id, materialDecks.deckId))
+    .where(eq(materialDecks.materialId, materialId))
+    .all();
+
+  // Linked quizzes
+  const linkedQuizzes = db.select({
+    id: quizzes.id,
+    title: quizzes.title,
+  }).from(materialQuizzes)
+    .innerJoin(quizzes, eq(quizzes.id, materialQuizzes.quizId))
+    .where(eq(materialQuizzes.materialId, materialId))
+    .all();
+
+  return {
+    ...material,
+    step: step ? { id: step.id, isCompleted: !!step.isCompleted } : null,
     linkedDecks,
     linkedQuizzes,
   };
