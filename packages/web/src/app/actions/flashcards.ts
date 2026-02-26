@@ -282,6 +282,25 @@ export async function completeStudySession(sessionId: number, completedAt?: Date
   });
 }
 
+export async function discardSession(sessionId: number) {
+  z.number().int().positive().parse(sessionId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+  writeTransaction(db, () => {
+    const session = db.select({ id: studySessions.id, discardedAt: studySessions.discardedAt })
+      .from(studySessions)
+      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
+      .get();
+    if (!session) throw new Error("Session not found");
+    if (session.discardedAt) throw new Error("Session is already discarded");
+
+    db.update(studySessions)
+      .set({ discardedAt: new Date() })
+      .where(eq(studySessions.id, sessionId))
+      .run();
+  });
+}
+
 export async function startCourseStudySession(
   courseId: number,
   mode: "flashcard" | "quiz",
