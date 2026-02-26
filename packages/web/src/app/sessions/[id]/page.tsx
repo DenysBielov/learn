@@ -6,6 +6,7 @@ import {
   XCircle, FileText, Target
 } from "lucide-react";
 import { CloseSessionDialog } from "@/components/close-session-dialog";
+import { DiscardSessionDialog } from "@/components/discard-session-dialog";
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
@@ -54,7 +55,7 @@ export default async function SessionDetailPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold mb-2">
-            {session.summary || session.deckName || "Study Session"}
+            {session.title || session.summary || "Study Session"}
           </h1>
           <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
             <span>{dateStr} at {timeStr}</span>
@@ -68,21 +69,31 @@ export default async function SessionDetailPage({
               </>
             )}
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border ${
-              isActive
-                ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
-                : "text-green-400 bg-green-500/10 border-green-500/20"
+              session.discardedAt
+                ? "text-red-400 bg-red-500/10 border-red-500/20"
+                : isActive
+                  ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+                  : "text-green-400 bg-green-500/10 border-green-500/20"
             }`}>
-              {isActive ? "Active" : "Completed"}
+              {session.discardedAt ? "Discarded" : isActive ? "Active" : "Completed"}
             </span>
           </div>
         </div>
-        {isActive && (
-          <CloseSessionDialog
-            sessionId={session.id}
-            startedAt={session.startedAt}
-            trigger={<Button variant="outline" size="sm">Close Session</Button>}
-          />
-        )}
+        <div className="flex gap-2">
+          {isActive && (
+            <CloseSessionDialog
+              sessionId={session.id}
+              startedAt={session.startedAt}
+              trigger={<Button variant="outline" size="sm">Close Session</Button>}
+            />
+          )}
+          {!session.discardedAt && (
+            <DiscardSessionDialog
+              sessionId={session.id}
+              trigger={<Button variant="outline" size="sm" className="text-destructive">Discard</Button>}
+            />
+          )}
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -185,23 +196,11 @@ export default async function SessionDetailPage({
           <div className="bg-card border rounded-[10px] p-4">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Session Info</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Mode</span>
-                <span className="capitalize">{session.mode}</span>
-              </div>
               {session.courseName && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Course</span>
                   <Link href={`/courses/${session.courseId}`} className="text-blue-400 hover:underline truncate ml-2">
                     {session.courseName}
-                  </Link>
-                </div>
-              )}
-              {session.deckName && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Deck</span>
-                  <Link href={`/decks/${session.deckId}`} className="text-blue-400 hover:underline truncate ml-2">
-                    {session.deckName}
                   </Link>
                 </div>
               )}
@@ -234,8 +233,6 @@ export default async function SessionDetailPage({
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {new Date(related.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      {" · "}
-                      <span className="capitalize">{related.mode}</span>
                     </div>
                   </Link>
                 ))}
