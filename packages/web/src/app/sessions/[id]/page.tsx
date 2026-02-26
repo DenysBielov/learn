@@ -2,8 +2,8 @@ import { getSession } from "@/app/actions/sessions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Clock, Layers, HelpCircle, CheckCircle2,
-  XCircle, FileText, Target
+  ArrowLeft, Clock, Layers, HelpCircle,
+  FileText, Target
 } from "lucide-react";
 import { CloseSessionDialog } from "@/components/close-session-dialog";
 import { DiscardSessionDialog } from "@/components/discard-session-dialog";
@@ -124,43 +124,35 @@ export default async function SessionDetailPage({
             </div>
           </div>
 
-          {/* Activity breakdown */}
-          {(totalCards > 0 || totalQuestions > 0) && (
+          {/* Activities */}
+          {session.activities && session.activities.length > 0 && (
             <div className="bg-card border rounded-[10px] p-4">
-              <h2 className="text-sm font-semibold mb-3">Activity</h2>
+              <h2 className="text-sm font-semibold mb-3">Activities</h2>
               <div className="space-y-2">
-                {totalCards > 0 && (
-                  <div className="flex items-center justify-between text-sm">
+                {session.activities.map((activity) => (
+                  <div key={activity.id} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      <span>Flashcard Reviews</span>
+                      {activity.type === "flashcard_review" ? (
+                        <Layers className="h-4 w-4 text-muted-foreground" />
+                      ) : activity.type === "quiz_answer" ? (
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span>{activity.deckName || activity.quizName || "Activity"}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {activity.type === "flashcard_review" ? "Study" : activity.type === "quiz_answer" ? "Quiz" : "Reading"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1 text-green-400 text-xs">
-                        <CheckCircle2 className="h-3 w-3" />{correctCards}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-red-400 text-xs">
-                        <XCircle className="h-3 w-3" />{totalCards - correctCards}
-                      </span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {activity.cardCount > 0 && <span>{activity.cardCount} cards</span>}
+                      {activity.questionCount > 0 && <span>{activity.questionCount} questions</span>}
+                      {activity.completedAt && (
+                        <span className="text-green-400">completed</span>
+                      )}
                     </div>
                   </div>
-                )}
-                {totalQuestions > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                      <span>Quiz Questions</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1 text-green-400 text-xs">
-                        <CheckCircle2 className="h-3 w-3" />{correctQuestions}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-red-400 text-xs">
-                        <XCircle className="h-3 w-3" />{totalQuestions - correctQuestions}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}
