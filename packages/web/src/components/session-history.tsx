@@ -39,15 +39,16 @@ export async function SessionHistory({ deckId, courseId }: SessionHistoryProps) 
           <details key={session.id} className="group rounded-lg border">
             <summary className="flex cursor-pointer items-center gap-3 p-3 text-sm [&::-webkit-details-marker]:hidden">
               <Badge variant="outline" className="shrink-0">
-                {session.mode === "flashcard" ? "Study" : "Quiz"}
+                {session.activityType === "flashcard_review" ? "Study" :
+                 session.activityType === "quiz_answer" ? "Quiz" : "Reading"}
               </Badge>
               <span className="text-muted-foreground">
                 {formatDate(session.startedAt)} {formatTime(session.startedAt)}
               </span>
               <span className="text-muted-foreground">
-                {session.itemCount} {session.mode === "flashcard" ? "cards" : "questions"}
+                {session.itemCount} {session.activityType === "flashcard_review" ? "cards" : "questions"}
               </span>
-              {session.mode === "quiz" && session.itemCount > 0 && (
+              {session.activityType === "quiz_answer" && session.itemCount > 0 && (
                 <span className="text-muted-foreground">
                   {Math.round((session.correctCount / session.itemCount) * 100)}%
                 </span>

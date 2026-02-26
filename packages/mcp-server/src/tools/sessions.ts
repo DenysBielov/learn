@@ -1,15 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   type AppDatabase,
   studySessions,
+  sessionActivities,
   courses,
   materials,
   decks,
   quizzes,
   flashcardResults,
   quizResults,
+  courseSteps,
+  stepProgress,
   writeTransaction,
 } from "@flashcards/database";
 import { emitEvent } from "@flashcards/database/events";
@@ -18,16 +21,21 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
   // ── 1. create_study_session ─────────────────────────────────────────
   server.tool(
     "create_study_session",
-    "Create a new study session for flashcards, quiz, or reading",
+    "Create a new study session, optionally starting with a flashcard or quiz activity",
     {
       courseId: z.number().int().positive().optional(),
       deckId: z.number().int().positive().optional(),
       quizId: z.number().int().positive().optional(),
-      mode: z.enum(["flashcard", "quiz", "reading"]),
-      subMode: z.string().max(100).optional(),
     },
-    async ({ courseId, deckId, quizId, mode, subMode }) => {
+    async ({ courseId, deckId, quizId }) => {
       try {
+        if (deckId !== undefined && quizId !== undefined) {
+          return {
+            content: [{ type: "text" as const, text: "Provide either deckId or quizId, not both" }],
+            isError: true,
+          };
+        }
+
         // Validate ownership of referenced entities
         if (courseId !== undefined) {
           const course = db
@@ -71,22 +79,38 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
           }
         }
 
-        const [session] = writeTransaction(db, () =>
-          db
+        const [session] = writeTransaction(db, () => {
+          const [s] = db
             .insert(studySessions)
             .values({
               userId,
               courseId: courseId ?? null,
-              deckId: deckId ?? null,
-              quizId: quizId ?? null,
-              mode,
-              subMode: subMode ?? null,
             })
             .returning()
-            .all()
-        );
+            .all();
 
-        emitEvent(db, userId, "session.created", { sessionId: session.id, mode });
+          if (deckId) {
+            db.insert(sessionActivities)
+              .values({
+                sessionId: s.id,
+                type: "flashcard_review",
+                deckId,
+              })
+              .run();
+          } else if (quizId) {
+            db.insert(sessionActivities)
+              .values({
+                sessionId: s.id,
+                type: "quiz_answer",
+                quizId,
+              })
+              .run();
+          }
+
+          return [s];
+        });
+
+        emitEvent(db, userId, "session.created", { sessionId: session.id });
         return { content: [{ type: "text" as const, text: JSON.stringify(session, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -116,19 +140,23 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
           };
         }
 
-        const [session] = writeTransaction(db, () =>
-          db
+        const [session] = writeTransaction(db, () => {
+          const [s] = db
             .insert(studySessions)
-            .values({
-              userId,
-              materialId,
-              mode: "reading",
-            })
+            .values({ userId })
             .returning()
-            .all()
-        );
+            .all();
+          db.insert(sessionActivities)
+            .values({
+              sessionId: s.id,
+              type: "reading",
+              materialId,
+            })
+            .run();
+          return [s];
+        });
 
-        emitEvent(db, userId, "session.created", { sessionId: session.id, mode: "reading", materialId });
+        emitEvent(db, userId, "session.created", { sessionId: session.id, materialId });
         return { content: [{ type: "text" as const, text: JSON.stringify(session, null, 2) }] };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -171,8 +199,70 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
           .where(eq(quizResults.sessionId, sessionId))
           .get();
 
+        const activities = db
+          .select({
+            id: sessionActivities.id,
+            type: sessionActivities.type,
+            deckId: sessionActivities.deckId,
+            quizId: sessionActivities.quizId,
+            materialId: sessionActivities.materialId,
+            startedAt: sessionActivities.startedAt,
+            completedAt: sessionActivities.completedAt,
+          })
+          .from(sessionActivities)
+          .where(eq(sessionActivities.sessionId, sessionId))
+          .all();
+
+        // Batch-load resource names
+        const allDeckIds = [
+          ...new Set(activities.filter((a) => a.deckId).map((a) => a.deckId!)),
+        ];
+        const allQuizIds = [
+          ...new Set(activities.filter((a) => a.quizId).map((a) => a.quizId!)),
+        ];
+        const allMaterialIds = [
+          ...new Set(activities.filter((a) => a.materialId).map((a) => a.materialId!)),
+        ];
+
+        const deckNameMap = new Map<number, string>();
+        if (allDeckIds.length > 0) {
+          const rows = db
+            .select({ id: decks.id, name: decks.name })
+            .from(decks)
+            .where(inArray(decks.id, allDeckIds))
+            .all();
+          for (const r of rows) deckNameMap.set(r.id, r.name);
+        }
+        const quizNameMap = new Map<number, string>();
+        if (allQuizIds.length > 0) {
+          const rows = db
+            .select({ id: quizzes.id, title: quizzes.title })
+            .from(quizzes)
+            .where(inArray(quizzes.id, allQuizIds))
+            .all();
+          for (const r of rows) quizNameMap.set(r.id, r.title);
+        }
+        const materialNameMap = new Map<number, string>();
+        if (allMaterialIds.length > 0) {
+          const rows = db
+            .select({ id: materials.id, title: materials.title })
+            .from(materials)
+            .where(inArray(materials.id, allMaterialIds))
+            .all();
+          for (const r of rows) materialNameMap.set(r.id, r.title);
+        }
+
+        const enrichedActivities = activities.map((a) => {
+          let sourceName: string | null = null;
+          if (a.deckId) sourceName = deckNameMap.get(a.deckId) ?? null;
+          else if (a.quizId) sourceName = quizNameMap.get(a.quizId) ?? null;
+          else if (a.materialId) sourceName = materialNameMap.get(a.materialId) ?? null;
+          return { ...a, sourceName };
+        });
+
         const result = {
           ...session,
+          activities: enrichedActivities,
           flashcardResultCount: fcResults?.count ?? 0,
           quizResultCount: qResults?.count ?? 0,
         };
@@ -282,14 +372,81 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
           updates.summary = summary;
         }
 
-        const [updated] = writeTransaction(db, () =>
-          db
+        const [updated] = writeTransaction(db, () => {
+          const [u] = db
             .update(studySessions)
             .set(updates)
             .where(eq(studySessions.id, sessionId))
             .returning()
-            .all()
-        );
+            .all();
+
+          // Complete all open activities
+          db.update(sessionActivities)
+            .set({ completedAt: endTime })
+            .where(
+              and(
+                eq(sessionActivities.sessionId, sessionId),
+                isNull(sessionActivities.completedAt)
+              )
+            )
+            .run();
+
+          // Auto-complete quiz course steps
+          const quizActivities = db
+            .select({ quizId: sessionActivities.quizId })
+            .from(sessionActivities)
+            .where(
+              and(
+                eq(sessionActivities.sessionId, sessionId),
+                eq(sessionActivities.type, "quiz_answer"),
+                isNotNull(sessionActivities.quizId)
+              )
+            )
+            .all();
+
+          for (const qa of quizActivities) {
+            if (!qa.quizId) continue;
+            const step = db
+              .select({ stepId: courseSteps.id })
+              .from(courseSteps)
+              .innerJoin(courses, eq(courseSteps.courseId, courses.id))
+              .where(
+                and(eq(courseSteps.quizId, qa.quizId), eq(courses.userId, userId))
+              )
+              .get();
+
+            if (step) {
+              const existing = db
+                .select({ id: stepProgress.id })
+                .from(stepProgress)
+                .where(
+                  and(
+                    eq(stepProgress.courseStepId, step.stepId),
+                    eq(stepProgress.userId, userId)
+                  )
+                )
+                .get();
+
+              if (existing) {
+                db.update(stepProgress)
+                  .set({ isCompleted: true, completedAt: new Date() })
+                  .where(eq(stepProgress.id, existing.id))
+                  .run();
+              } else {
+                db.insert(stepProgress)
+                  .values({
+                    courseStepId: step.stepId,
+                    userId,
+                    isCompleted: true,
+                    completedAt: new Date(),
+                  })
+                  .run();
+              }
+            }
+          }
+
+          return [u];
+        });
 
         emitEvent(db, userId, "session.closed", { sessionId });
         return { content: [{ type: "text" as const, text: JSON.stringify(updated, null, 2) }] };
@@ -307,14 +464,18 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
     {
       courseId: z.number().int().positive().optional(),
       limit: z.number().int().min(1).max(50).default(10).optional(),
+      includeDiscarded: z.boolean().default(false).optional(),
     },
-    async ({ courseId, limit }) => {
+    async ({ courseId, limit, includeDiscarded }) => {
       try {
         const take = limit ?? 10;
 
         const conditions = [eq(studySessions.userId, userId)];
         if (courseId !== undefined) {
           conditions.push(eq(studySessions.courseId, courseId));
+        }
+        if (!includeDiscarded) {
+          conditions.push(isNull(studySessions.discardedAt));
         }
 
         const sessions = db

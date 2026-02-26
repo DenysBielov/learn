@@ -643,27 +643,29 @@ export async function getSessionHistory(deckId?: number, courseId?: number) {
 
   if (!parsed.deckId && !parsed.courseId) return [];
 
-  // Build WHERE condition based on which param is provided
   const whereClause = parsed.courseId
     ? sql`s.course_id = ${parsed.courseId} AND s.user_id = ${userId}`
-    : sql`s.deck_id = ${parsed.deckId} AND s.user_id = ${userId}`;
+    : sql`EXISTS (
+        SELECT 1 FROM session_activity sa
+        WHERE sa.session_id = s.id AND sa.deck_id = ${parsed.deckId}
+      ) AND s.user_id = ${userId}`;
 
   type SessionRow = {
     id: number;
-    mode: string;
-    sub_mode: string | null;
     started_at: number;
     completed_at: number | null;
     notes: string | null;
     item_count: number;
     correct_count: number;
+    activity_type: string | null;
   };
 
   const rows = db.all<SessionRow>(sql`
     SELECT
-      s.id, s.mode, s.sub_mode, s.started_at, s.completed_at, s.notes,
+      s.id, s.started_at, s.completed_at, s.notes,
       COALESCE(fc.cnt, 0) + COALESCE(qc.cnt, 0) AS item_count,
-      COALESCE(fc.correct, 0) + COALESCE(qc.correct, 0) AS correct_count
+      COALESCE(fc.correct, 0) + COALESCE(qc.correct, 0) AS correct_count,
+      (SELECT sa.type FROM session_activity sa WHERE sa.session_id = s.id LIMIT 1) AS activity_type
     FROM study_session s
     LEFT JOIN (
       SELECT session_id, COUNT(*) AS cnt, SUM(correct) AS correct
@@ -673,15 +675,14 @@ export async function getSessionHistory(deckId?: number, courseId?: number) {
       SELECT session_id, COUNT(*) AS cnt, SUM(correct) AS correct
       FROM quiz_result GROUP BY session_id
     ) qc ON qc.session_id = s.id
-    WHERE ${whereClause} AND s.completed_at IS NOT NULL
+    WHERE ${whereClause} AND s.completed_at IS NOT NULL AND s.discarded_at IS NULL
     ORDER BY s.started_at DESC
     LIMIT 10
   `);
 
   return rows.map((r) => ({
     id: r.id,
-    mode: r.mode as "flashcard" | "quiz",
-    subMode: r.sub_mode,
+    activityType: r.activity_type as "flashcard_review" | "quiz_answer" | "reading" | null,
     startedAt: new Date(r.started_at * 1000),
     completedAt: r.completed_at ? new Date(r.completed_at * 1000) : null,
     notes: r.notes,
