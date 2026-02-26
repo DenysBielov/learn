@@ -1,8 +1,8 @@
 "use server";
 
 import { getDb } from "@flashcards/database";
-import { studySessions, flashcardResults, quizResults, flashcards, decks } from "@flashcards/database/schema";
-import { and, eq, sql, gte, count } from "drizzle-orm";
+import { studySessions, flashcardResults, quizResults, flashcards, decks, quizQuestions } from "@flashcards/database/schema";
+import { and, eq, sql, gte, count, isNull, or } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 
 export async function getStudyStats() {
@@ -13,29 +13,43 @@ export async function getStudyStats() {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - 7);
 
-  // Total sessions
+  // Total sessions (exclude discarded)
   const totalSessions = db.select({ count: count() }).from(studySessions)
-    .where(eq(studySessions.userId, userId)).get();
+    .where(and(eq(studySessions.userId, userId), isNull(studySessions.discardedAt))).get();
 
-  // Sessions today
+  // Sessions today (exclude discarded)
   const todaySessions = db.select({ count: count() }).from(studySessions)
-    .where(and(gte(studySessions.startedAt, todayStart), eq(studySessions.userId, userId))).get();
+    .where(and(
+      gte(studySessions.startedAt, todayStart),
+      eq(studySessions.userId, userId),
+      isNull(studySessions.discardedAt),
+    )).get();
 
-  // Flashcard results stats
+  // Flashcard results stats — use LEFT JOIN to include sessionless results, exclude discarded session results
   const flashcardStats = db.select({
     total: count(),
     correct: sql<number>`SUM(CASE WHEN ${flashcardResults.correct} = 1 THEN 1 ELSE 0 END)`,
   }).from(flashcardResults)
-    .innerJoin(studySessions, eq(flashcardResults.sessionId, studySessions.id))
-    .where(eq(studySessions.userId, userId)).get();
+    .leftJoin(studySessions, eq(flashcardResults.sessionId, studySessions.id))
+    .innerJoin(flashcards, eq(flashcardResults.flashcardId, flashcards.id))
+    .innerJoin(decks, eq(flashcards.deckId, decks.id))
+    .where(and(
+      eq(decks.userId, userId),
+      or(isNull(studySessions.discardedAt), isNull(flashcardResults.sessionId)),
+    )).get();
 
-  // Quiz results stats
+  // Quiz results stats — route through decks, exclude discarded session results
   const quizStats = db.select({
     total: count(),
     correct: sql<number>`SUM(CASE WHEN ${quizResults.correct} = 1 THEN 1 ELSE 0 END)`,
   }).from(quizResults)
-    .innerJoin(studySessions, eq(quizResults.sessionId, studySessions.id))
-    .where(eq(studySessions.userId, userId)).get();
+    .leftJoin(studySessions, eq(quizResults.sessionId, studySessions.id))
+    .innerJoin(quizQuestions, eq(quizResults.questionId, quizQuestions.id))
+    .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+    .where(and(
+      eq(decks.userId, userId),
+      or(isNull(studySessions.discardedAt), isNull(quizResults.sessionId)),
+    )).get();
 
   // Card mastery breakdown
   const allCards = db.select().from(flashcards)
@@ -50,11 +64,11 @@ export async function getStudyStats() {
     .innerJoin(decks, eq(flashcards.deckId, decks.id))
     .where(sql`${flashcards.nextReviewAt} <= ${Math.floor(now.getTime() / 1000)} AND ${decks.userId} = ${userId}`).get();
 
-  // Study streak: count consecutive days with at least one session
+  // Study streak: count consecutive days with at least one non-discarded session
   const recentSessions = db.select({
     date: sql<string>`date(started_at, 'unixepoch')`,
   }).from(studySessions)
-    .where(eq(studySessions.userId, userId))
+    .where(and(eq(studySessions.userId, userId), isNull(studySessions.discardedAt)))
     .groupBy(sql`date(started_at, 'unixepoch')`)
     .orderBy(sql`date(started_at, 'unixepoch') DESC`)
     .all();

@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb } from "@flashcards/database";
-import { studySessions, flashcardResults, quizResults, courses, decks } from "@flashcards/database/schema";
+import { studySessions, sessionActivities, flashcardResults, quizResults, courses } from "@flashcards/database/schema";
 import { requireAuth } from "@/lib/auth";
 import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull } from "drizzle-orm";
 
@@ -10,16 +10,13 @@ export async function getSessions() {
   const db = getDb();
 
   const sessions = db.select().from(studySessions)
-    .where(eq(studySessions.userId, userId))
+    .where(and(eq(studySessions.userId, userId), isNull(studySessions.discardedAt)))
     .orderBy(desc(studySessions.startedAt))
     .all();
 
   return sessions.map(session => {
     const course = session.courseId
       ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
-      : null;
-    const deck = session.deckId
-      ? db.select().from(decks).where(eq(decks.id, session.deckId)).get()
       : null;
 
     const cardStats = db.select({
@@ -37,7 +34,6 @@ export async function getSessions() {
     return {
       ...session,
       courseName: course?.name ?? null,
-      deckName: deck?.name ?? null,
       cardsReviewed: cardStats?.reviewed ?? 0,
       questionsAnswered: quizStats?.answered ?? 0,
     };
@@ -55,7 +51,7 @@ export async function getSessionStats() {
   const db = getDb();
 
   const allSessions = db.select().from(studySessions)
-    .where(eq(studySessions.userId, userId))
+    .where(and(eq(studySessions.userId, userId), isNull(studySessions.discardedAt)))
     .all();
 
   const totalSessions = allSessions.length;
@@ -139,9 +135,6 @@ export async function getSession(id: number) {
   const course = session.courseId
     ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
     : null;
-  const deck = session.deckId
-    ? db.select().from(decks).where(eq(decks.id, session.deckId)).get()
-    : null;
 
   const cardReviews = db.select().from(flashcardResults)
     .where(eq(flashcardResults.sessionId, session.id))
@@ -151,7 +144,7 @@ export async function getSession(id: number) {
     .where(eq(quizResults.sessionId, session.id))
     .all();
 
-  // Related sessions (same course or deck)
+  // Related sessions (same course)
   const relatedSessions = session.courseId
     ? db.select().from(studySessions)
         .where(and(
@@ -167,7 +160,6 @@ export async function getSession(id: number) {
   return {
     ...session,
     courseName: course?.name ?? null,
-    deckName: deck?.name ?? null,
     cardReviews,
     quizAnswers: quizAnswersList,
     relatedSessions: relatedSessions.map(s => ({
@@ -192,6 +184,7 @@ export async function getHeatmapData() {
     .where(and(
       eq(studySessions.userId, userId),
       gte(studySessions.startedAt, oneYearAgo),
+      isNull(studySessions.discardedAt),
     ))
     .all();
 
@@ -254,10 +247,9 @@ export async function getHeatmapData() {
 
 export type SessionFilters = {
   query?: string;
-  mode?: "flashcard" | "quiz" | "reading";
   courseId?: number;
   dateRange?: "today" | "week" | "month" | "year";
-  status?: "active" | "completed";
+  status?: "active" | "completed" | "discarded";
   sortBy?: "date" | "duration";
   sortOrder?: "asc" | "desc";
   cursor?: number;
@@ -271,10 +263,6 @@ export async function getFilteredSessions(filters: SessionFilters) {
 
   // Build WHERE conditions
   const conditions = [eq(studySessions.userId, userId)];
-
-  if (filters.mode) {
-    conditions.push(eq(studySessions.mode, filters.mode));
-  }
 
   if (filters.courseId) {
     conditions.push(eq(studySessions.courseId, filters.courseId));
@@ -303,10 +291,15 @@ export async function getFilteredSessions(filters: SessionFilters) {
     conditions.push(gte(studySessions.startedAt, rangeStart));
   }
 
-  if (filters.status === "active") {
-    conditions.push(isNull(studySessions.completedAt));
-  } else if (filters.status === "completed") {
-    conditions.push(isNotNull(studySessions.completedAt));
+  if (filters.status === "discarded") {
+    conditions.push(isNotNull(studySessions.discardedAt));
+  } else {
+    conditions.push(isNull(studySessions.discardedAt));
+    if (filters.status === "active") {
+      conditions.push(isNull(studySessions.completedAt));
+    } else if (filters.status === "completed") {
+      conditions.push(isNotNull(studySessions.completedAt));
+    }
   }
 
   // Cursor-based pagination
@@ -344,9 +337,6 @@ export async function getFilteredSessions(filters: SessionFilters) {
     const course = session.courseId
       ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
       : null;
-    const deck = session.deckId
-      ? db.select().from(decks).where(eq(decks.id, session.deckId)).get()
-      : null;
 
     const cardStats = db.select({
       reviewed: count(),
@@ -368,7 +358,6 @@ export async function getFilteredSessions(filters: SessionFilters) {
       ...session,
       courseName: course?.name ?? null,
       courseColor: course?.color ?? null,
-      deckName: deck?.name ?? null,
       cardsReviewed: cardStats?.reviewed ?? 0,
       questionsAnswered: quizStats?.answered ?? 0,
       duration,
@@ -382,7 +371,6 @@ export async function getFilteredSessions(filters: SessionFilters) {
     filtered = enriched.filter(s =>
       (s.summary && s.summary.toLowerCase().includes(q)) ||
       (s.courseName && s.courseName.toLowerCase().includes(q)) ||
-      (s.deckName && s.deckName.toLowerCase().includes(q)) ||
       (s.notes && s.notes.toLowerCase().includes(q))
     );
   }
