@@ -85,7 +85,6 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
   // Filter state
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("all");
   const [courseId, setCourseId] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [status, setStatus] = useState("all");
@@ -99,9 +98,8 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
   // Build filters object from current state
   const buildFilters = useCallback(
-    (overrides: Partial<{ query: string; mode: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}): SessionFilters => {
+    (overrides: Partial<{ query: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}): SessionFilters => {
       const q = overrides.query ?? query;
-      const m = overrides.mode ?? mode;
       const c = overrides.courseId ?? courseId;
       const d = overrides.dateRange ?? dateRange;
       const s = overrides.status ?? status;
@@ -109,21 +107,19 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
       const filters: SessionFilters = {};
       if (q) filters.query = q;
-      if (m !== "all") filters.mode = m as SessionFilters["mode"];
       if (c !== "all") filters.courseId = Number(c);
       if (d !== "all") filters.dateRange = d as SessionFilters["dateRange"];
       if (s !== "all") filters.status = s as SessionFilters["status"];
       Object.assign(filters, sortToFilters(so));
       return filters;
     },
-    [query, mode, courseId, dateRange, status, sort]
+    [query, courseId, dateRange, status, sort]
   );
 
   // Sync filters to URL
   const syncUrl = useCallback(
-    (overrides: Partial<{ query: string; mode: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}) => {
+    (overrides: Partial<{ query: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}) => {
       const q = overrides.query ?? query;
-      const m = overrides.mode ?? mode;
       const c = overrides.courseId ?? courseId;
       const d = overrides.dateRange ?? dateRange;
       const s = overrides.status ?? status;
@@ -131,7 +127,6 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
       const params = new URLSearchParams();
       if (q) params.set("q", q);
-      if (m !== "all") params.set("mode", m);
       if (c !== "all") params.set("course", c);
       if (d !== "all") params.set("date", d);
       if (s !== "all") params.set("status", s);
@@ -142,12 +137,12 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
       const qs = params.toString();
       window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     },
-    [query, mode, courseId, dateRange, status, sort]
+    [query, courseId, dateRange, status, sort]
   );
 
   // Fetch with filters (resets list)
   const fetchFiltered = useCallback(
-    (overrides: Partial<{ query: string; mode: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}) => {
+    (overrides: Partial<{ query: string; courseId: string; dateRange: string; status: string; sort: SortOption }> = {}) => {
       syncUrl(overrides);
       const filters = buildFilters(overrides);
       startTransition(async () => {
@@ -172,14 +167,6 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
   );
 
   // Filter change handlers (immediate)
-  const handleModeChange = useCallback(
-    (value: string) => {
-      setMode(value);
-      fetchFiltered({ mode: value });
-    },
-    [fetchFiltered]
-  );
-
   const handleCourseChange = useCallback(
     (value: string) => {
       setCourseId(value);
@@ -261,18 +248,6 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
 
       {/* Filters + Sort */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={mode} onValueChange={handleModeChange}>
-          <SelectTrigger size="sm">
-            <SelectValue placeholder="All modes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All modes</SelectItem>
-            <SelectItem value="flashcard">Flashcard</SelectItem>
-            <SelectItem value="quiz">Quiz</SelectItem>
-            <SelectItem value="reading">Reading</SelectItem>
-          </SelectContent>
-        </Select>
-
         <Select value={courseId} onValueChange={handleCourseChange}>
           <SelectTrigger size="sm">
             <SelectValue placeholder="All courses" />
@@ -312,6 +287,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
             <SelectItem value="all">All status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="discarded">Discarded</SelectItem>
           </SelectContent>
         </Select>
 
@@ -341,7 +317,7 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
           {sessions.map((session) => {
             const isActive = !session.completedAt;
             const color = session.courseColor ?? "#6366f1";
-            const title = session.summary || session.deckName || "Study Session";
+            const title = session.title || session.summary || "Study Session";
 
             return (
               <Link
@@ -361,20 +337,9 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
                   {session.courseName && (
                     <div className="text-xs text-muted-foreground truncate">
                       {session.courseName}
-                      {session.deckName && (
-                        <>
-                          <span className="mx-1 text-muted-foreground/40">&rsaquo;</span>
-                          {session.deckName}
-                        </>
-                      )}
                     </div>
                   )}
                 </div>
-
-                {/* Mode pill */}
-                <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full border bg-muted/30 text-muted-foreground capitalize shrink-0">
-                  {session.mode}
-                </span>
 
                 {/* Duration pill */}
                 {session.duration !== null && (
@@ -386,12 +351,14 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
                 {/* Status pill */}
                 <span
                   className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full border shrink-0 ${
-                    isActive
-                      ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
-                      : "text-green-400 bg-green-500/10 border-green-500/20"
+                    session.discardedAt
+                      ? "text-red-400 bg-red-500/10 border-red-500/20"
+                      : isActive
+                        ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+                        : "text-green-400 bg-green-500/10 border-green-500/20"
                   }`}
                 >
-                  {isActive ? "Active" : "Completed"}
+                  {session.discardedAt ? "Discarded" : isActive ? "Active" : "Completed"}
                 </span>
 
                 {/* Cards / questions count */}
