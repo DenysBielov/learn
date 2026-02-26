@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb } from "@flashcards/database";
-import { studySessions, sessionActivities, flashcardResults, quizResults, courses } from "@flashcards/database/schema";
+import { studySessions, flashcardResults, quizResults, courses } from "@flashcards/database/schema";
 import { requireAuth } from "@/lib/auth";
 import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull } from "drizzle-orm";
 
@@ -150,6 +150,7 @@ export async function getSession(id: number) {
         .where(and(
           eq(studySessions.userId, userId),
           eq(studySessions.courseId, session.courseId),
+          isNull(studySessions.discardedAt),
         ))
         .orderBy(desc(studySessions.startedAt))
         .limit(5)
