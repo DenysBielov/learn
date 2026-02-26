@@ -334,9 +334,9 @@ export function SessionsList({ initialSessions, initialNextCursor, courses }: Pr
                 {/* Title + breadcrumb */}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{title}</div>
-                  {session.courseName && (
+                  {([session.courseName, ...(session.deckNames || [])].filter(Boolean).length > 0) && (
                     <div className="text-xs text-muted-foreground truncate">
-                      {session.courseName}
+                      {[session.courseName, ...(session.deckNames || [])].filter(Boolean).join(" \u00b7 ")}
                     </div>
                   )}
                 </div>
