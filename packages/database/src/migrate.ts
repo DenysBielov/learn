@@ -41,8 +41,16 @@ if (!hasUserIdColumn.count && hasUsersTable.count) {
   }
 }
 
+// Disable foreign keys during migration to allow table recreation (DROP + RENAME)
+// PRAGMA foreign_keys cannot be changed inside a transaction, so it must be set
+// before Drizzle's migrator opens its BEGIN…COMMIT wrapper.
+sqlite.pragma("foreign_keys = OFF");
+
 const db = drizzle(sqlite);
 migrate(db, { migrationsFolder: path.resolve(import.meta.dirname, "./migrations") });
+
+// Re-enable foreign keys after migration
+sqlite.pragma("foreign_keys = ON");
 console.log("Migrations applied successfully");
 
 sqlite.close();

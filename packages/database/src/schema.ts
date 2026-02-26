@@ -183,50 +183,69 @@ export const questionTags = sqliteTable("question_tag", {
 export const studySessions = sqliteTable("study_session", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().references(() => users.id).default(1),
-  deckId: integer("deck_id").references(() => decks.id, { onDelete: "cascade" }),
   courseId: integer("course_id").references(() => courses.id, { onDelete: "cascade" }),
-  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "set null" }),
-  materialId: integer("material_id").references(() => materials.id, { onDelete: "set null" }),
-  mode: text("mode", { enum: ["flashcard", "quiz", "reading"] }).notNull(),
-  subMode: text("sub_mode"),
   startedAt: integer("started_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   completedAt: integer("completed_at", { mode: "timestamp" }),
+  discardedAt: integer("discarded_at", { mode: "timestamp" }),
   summary: text("summary"),
   notes: text("notes"),
   title: text("title"),
   insights: text("insights"), // JSON array of { author, content, createdAt }
 }, (table) => [
-  index("idx_study_session_deck").on(table.deckId),
   index("idx_study_session_course").on(table.courseId),
-  index("idx_study_session_quiz").on(table.quizId),
-  index("idx_study_session_material").on(table.materialId),
   index("idx_study_session_started_at").on(table.startedAt),
   index("idx_study_session_user").on(table.userId),
+  index("idx_study_session_user_active").on(table.userId, table.discardedAt, table.startedAt),
+]);
+
+// --- SessionActivity ---
+export const sessionActivities = sqliteTable("session_activity", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: integer("session_id").notNull().references(() => studySessions.id, { onDelete: "cascade" }),
+  type: text("type", { enum: ["flashcard_review", "quiz_answer", "reading"] }).notNull(),
+  deckId: integer("deck_id").references(() => decks.id, { onDelete: "set null" }),
+  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "set null" }),
+  materialId: integer("material_id").references(() => materials.id, { onDelete: "set null" }),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+}, (table) => [
+  index("idx_session_activity_session").on(table.sessionId),
+  index("idx_session_activity_deck").on(table.deckId),
+  index("idx_session_activity_quiz").on(table.quizId),
+  check("chk_activity_type_source", sql`
+    (type = 'flashcard_review' AND quiz_id IS NULL AND material_id IS NULL) OR
+    (type = 'quiz_answer' AND material_id IS NULL AND NOT (deck_id IS NOT NULL AND quiz_id IS NOT NULL)) OR
+    (type = 'reading' AND material_id IS NOT NULL AND deck_id IS NULL AND quiz_id IS NULL)
+  `),
 ]);
 
 // --- FlashcardResult ---
 export const flashcardResults = sqliteTable("flashcard_result", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").notNull().references(() => studySessions.id, { onDelete: "cascade" }),
+  sessionId: integer("session_id").references(() => studySessions.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").references(() => sessionActivities.id, { onDelete: "set null" }),
   flashcardId: integer("flashcard_id").notNull().references(() => flashcards.id, { onDelete: "cascade" }),
   correct: integer("correct", { mode: "boolean" }).notNull(),
   userAnswer: text("user_answer").default(""),
   timeSpentMs: integer("time_spent_ms").default(0),
 }, (table) => [
   index("idx_flashcard_result_session").on(table.sessionId),
+  index("idx_flashcard_result_activity").on(table.activityId),
   index("idx_flashcard_result_card_correct").on(table.flashcardId, table.correct),
 ]);
 
 // --- QuizResult ---
 export const quizResults = sqliteTable("quiz_result", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").notNull().references(() => studySessions.id, { onDelete: "cascade" }),
+  sessionId: integer("session_id").references(() => studySessions.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").references(() => sessionActivities.id, { onDelete: "set null" }),
   questionId: integer("question_id").notNull().references(() => quizQuestions.id, { onDelete: "cascade" }),
   correct: integer("correct", { mode: "boolean" }).notNull(),
   userAnswer: text("user_answer").default(""),
   timeSpentMs: integer("time_spent_ms").default(0),
 }, (table) => [
   index("idx_quiz_result_session").on(table.sessionId),
+  index("idx_quiz_result_activity").on(table.activityId),
   index("idx_quiz_result_question_correct").on(table.questionId, table.correct),
 ]);
 
@@ -386,7 +405,6 @@ export const deckRelations = relations(decks, ({ one, many }) => ({
   user: one(users, { fields: [decks.userId], references: [users.id] }),
   flashcards: many(flashcards),
   quizQuestions: many(quizQuestions),
-  studySessions: many(studySessions),
   courseDecks: many(courseDecks),
   materialDecks: many(materialDecks),
 }));
@@ -409,7 +427,6 @@ export const materialRelations = relations(materials, ({ one, many }) => ({
   materialResources: many(materialResources),
   sourcedFlashcards: many(flashcards),
   sourcedQuestions: many(quizQuestions),
-  studySessions: many(studySessions),
   dependenciesAsItem: many(learningDependencies, { relationName: "depMaterialItem" }),
   dependenciesAsTarget: many(learningDependencies, { relationName: "depOnMaterial" }),
 }));
@@ -418,7 +435,6 @@ export const quizRelations = relations(quizzes, ({ one, many }) => ({
   user: one(users, { fields: [quizzes.userId], references: [users.id] }),
   questions: many(quizQuestions),
   courseStep: many(courseSteps),
-  studySessions: many(studySessions),
   materialQuizzes: many(materialQuizzes),
 }));
 
@@ -477,21 +493,28 @@ export const courseDeckRelations = relations(courseDecks, ({ one }) => ({
 
 export const studySessionRelations = relations(studySessions, ({ one, many }) => ({
   user: one(users, { fields: [studySessions.userId], references: [users.id] }),
-  deck: one(decks, { fields: [studySessions.deckId], references: [decks.id] }),
   course: one(courses, { fields: [studySessions.courseId], references: [courses.id] }),
-  quiz: one(quizzes, { fields: [studySessions.quizId], references: [quizzes.id] }),
-  material: one(materials, { fields: [studySessions.materialId], references: [materials.id] }),
+  activities: many(sessionActivities),
   flashcardResults: many(flashcardResults),
   quizResults: many(quizResults),
 }));
 
+export const sessionActivityRelations = relations(sessionActivities, ({ one }) => ({
+  session: one(studySessions, { fields: [sessionActivities.sessionId], references: [studySessions.id] }),
+  deck: one(decks, { fields: [sessionActivities.deckId], references: [decks.id] }),
+  quiz: one(quizzes, { fields: [sessionActivities.quizId], references: [quizzes.id] }),
+  material: one(materials, { fields: [sessionActivities.materialId], references: [materials.id] }),
+}));
+
 export const flashcardResultRelations = relations(flashcardResults, ({ one }) => ({
   session: one(studySessions, { fields: [flashcardResults.sessionId], references: [studySessions.id] }),
+  activity: one(sessionActivities, { fields: [flashcardResults.activityId], references: [sessionActivities.id] }),
   flashcard: one(flashcards, { fields: [flashcardResults.flashcardId], references: [flashcards.id] }),
 }));
 
 export const quizResultRelations = relations(quizResults, ({ one }) => ({
   session: one(studySessions, { fields: [quizResults.sessionId], references: [studySessions.id] }),
+  activity: one(sessionActivities, { fields: [quizResults.activityId], references: [sessionActivities.id] }),
   question: one(quizQuestions, { fields: [quizResults.questionId], references: [quizQuestions.id] }),
 }));
 
