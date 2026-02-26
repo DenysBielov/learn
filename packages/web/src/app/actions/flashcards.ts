@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { flashcards, flashcardResults, studySessions, sessionActivities, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials, materials } from "@flashcards/database/schema";
+import { flashcards, flashcardResults, studySessions, sessionActivities, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials, materials, quizResults } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
-import { and, eq, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, desc, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { calculateSm2, type Sm2Rating } from "@/lib/sm2";
 import { requireAuth } from "@/lib/auth";
@@ -473,6 +473,26 @@ export async function completeActivity(activityId: number) {
       .where(eq(sessionActivities.id, activityId))
       .run()
   );
+}
+
+export async function getSessionQuickStats(sessionId: number) {
+  z.number().int().positive().parse(sessionId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const session = db.select({ id: studySessions.id }).from(studySessions)
+    .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId))).get();
+  if (!session) throw new Error("Session not found");
+
+  const cards = db.select({ count: count() }).from(flashcardResults)
+    .where(eq(flashcardResults.sessionId, sessionId)).get();
+  const questions = db.select({ count: count() }).from(quizResults)
+    .where(eq(quizResults.sessionId, sessionId)).get();
+
+  return {
+    cardsReviewed: cards?.count ?? 0,
+    questionsAnswered: questions?.count ?? 0,
+  };
 }
 
 interface FlashcardRow {

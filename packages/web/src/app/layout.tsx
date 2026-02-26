@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ActiveSessionProvider } from "@/components/active-session-provider";
+import { SessionWidget } from "@/components/session-widget";
 import { Nav } from "@/components/nav";
 import { RealtimeProvider } from "@/components/realtime-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
@@ -55,6 +56,7 @@ export default async function RootLayout({
                 <main className="flex-1 md:pl-16 lg:pl-64 pb-16 md:pb-0">
                   {children}
                 </main>
+                <SessionWidget />
               </ActiveSessionProvider>
             ) : (
               <main className="flex-1">{children}</main>
