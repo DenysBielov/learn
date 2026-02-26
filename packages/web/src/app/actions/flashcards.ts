@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { flashcards, flashcardResults, studySessions, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials, materials } from "@flashcards/database/schema";
+import { flashcards, flashcardResults, studySessions, sessionActivities, decks, courses, quizzes, courseSteps, stepProgress, learningMaterials, materials } from "@flashcards/database/schema";
 import { createFlashcardSchema } from "@flashcards/database/validation";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { calculateSm2, type Sm2Rating } from "@/lib/sm2";
 import { requireAuth } from "@/lib/auth";
@@ -135,10 +135,13 @@ export async function getAllFlashcards(deckId: number, tagIds?: number[]) {
 
 export async function reviewFlashcard(
   flashcardId: number,
-  sessionId: number,
+  sessionId: number | null,
+  activityId: number | null,
   rating: Sm2Rating,
   timeSpentMs: number
 ) {
+  if (sessionId !== null) z.number().int().positive().parse(sessionId);
+  if (activityId !== null) z.number().int().positive().parse(activityId);
   const { userId } = await requireAuth();
   const validatedRating = z.enum(["again", "hard", "good", "easy"]).parse(rating);
   const db = getDb();
@@ -156,10 +159,28 @@ export async function reviewFlashcard(
       .get();
     if (!card) throw new Error("Flashcard not found");
 
-    const session = db.select({ id: studySessions.id }).from(studySessions)
-      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
-      .get();
-    if (!session) throw new Error("Session not found");
+    if (sessionId !== null) {
+      const session = db.select({ id: studySessions.id, discardedAt: studySessions.discardedAt }).from(studySessions)
+        .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
+        .get();
+      if (!session) throw new Error("Session not found");
+      if (session.discardedAt) throw new Error("Session is discarded");
+    }
+
+    if (activityId !== null) {
+      const activity = db.select({ id: sessionActivities.id, sessionId: sessionActivities.sessionId })
+        .from(sessionActivities)
+        .innerJoin(studySessions, eq(sessionActivities.sessionId, studySessions.id))
+        .where(and(
+          eq(sessionActivities.id, activityId),
+          eq(studySessions.userId, userId),
+        ))
+        .get();
+      if (!activity) throw new Error("Activity not found");
+      if (sessionId !== null && activity.sessionId !== sessionId) {
+        throw new Error("Activity does not belong to the specified session");
+      }
+    }
 
     const sm2Result = calculateSm2(
       { easeFactor: card.easeFactor, interval: card.interval, repetitions: card.repetitions },
@@ -177,7 +198,8 @@ export async function reviewFlashcard(
       .run();
 
     db.insert(flashcardResults).values({
-      sessionId,
+      sessionId: sessionId ?? null,
+      activityId: activityId ?? null,
       flashcardId,
       correct,
       userAnswer: validatedRating,
@@ -186,46 +208,21 @@ export async function reviewFlashcard(
   });
 }
 
-export async function startStudySession(deckId: number, mode: "flashcard" | "quiz") {
-  const { userId } = await requireAuth();
-  const db = getDb();
-  const deck = db.select({ id: decks.id }).from(decks)
-    .where(and(eq(decks.id, deckId), eq(decks.userId, userId))).get();
-  if (!deck) throw new Error("Deck not found");
-
-  // Resume an incomplete session if one exists
-  const existing = db.select().from(studySessions)
-    .where(and(
-      eq(studySessions.deckId, deckId),
-      eq(studySessions.userId, userId),
-      eq(studySessions.mode, mode),
-      isNull(studySessions.completedAt),
-    ))
-    .orderBy(studySessions.startedAt)
-    .limit(1)
-    .get();
-  if (existing) return existing;
-
-  const [session] = writeTransaction(db, () =>
-    db.insert(studySessions).values({ deckId, mode, userId }).returning().all()
-  );
-  return session;
-}
-
 export async function completeStudySession(sessionId: number, completedAt?: Date) {
   const { userId } = await requireAuth();
   const db = getDb();
   writeTransaction(db, () => {
     const session = db.select({
       id: studySessions.id,
-      quizId: studySessions.quizId,
       startedAt: studySessions.startedAt,
       completedAt: studySessions.completedAt,
+      discardedAt: studySessions.discardedAt,
     }).from(studySessions)
       .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
       .get();
     if (!session) throw new Error("Session not found");
     if (session.completedAt) throw new Error("Session is already completed");
+    if (session.discardedAt) throw new Error("Session is discarded");
 
     const resolvedCompletedAt = completedAt ?? new Date();
 
@@ -243,15 +240,32 @@ export async function completeStudySession(sessionId: number, completedAt?: Date
       .where(eq(studySessions.id, sessionId))
       .run();
 
-    // Auto-complete quiz step if this session is for a standalone quiz
-    if (session.quizId) {
-      const step = db.select({
-        stepId: courseSteps.id,
-      })
+    // Complete any open activities in this session
+    db.update(sessionActivities)
+      .set({ completedAt: resolvedCompletedAt })
+      .where(and(
+        eq(sessionActivities.sessionId, sessionId),
+        isNull(sessionActivities.completedAt),
+      ))
+      .run();
+
+    // Auto-complete quiz steps for any quiz activities in this session
+    const quizActivities = db.select({ quizId: sessionActivities.quizId })
+      .from(sessionActivities)
+      .where(and(
+        eq(sessionActivities.sessionId, sessionId),
+        eq(sessionActivities.type, "quiz_answer"),
+        isNotNull(sessionActivities.quizId),
+      ))
+      .all();
+
+    for (const qa of quizActivities) {
+      if (!qa.quizId) continue;
+      const step = db.select({ stepId: courseSteps.id })
         .from(courseSteps)
         .innerJoin(courses, eq(courseSteps.courseId, courses.id))
         .where(and(
-          eq(courseSteps.quizId, session.quizId),
+          eq(courseSteps.quizId, qa.quizId),
           eq(courses.userId, userId),
         ))
         .get();
@@ -301,71 +315,164 @@ export async function discardSession(sessionId: number) {
   });
 }
 
-export async function startCourseStudySession(
-  courseId: number,
-  mode: "flashcard" | "quiz",
-  subMode: string
-) {
+export async function createSession(courseId?: number, title?: string) {
+  if (courseId !== undefined) z.number().int().positive().parse(courseId);
+  if (title !== undefined) z.string().min(1).max(200).parse(title);
   const { userId } = await requireAuth();
   const db = getDb();
-  const course = db.select({ id: courses.id }).from(courses)
-    .where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
-  if (!course) throw new Error("Course not found");
 
-  // Resume an incomplete session if one exists
-  const existing = db.select().from(studySessions)
-    .where(and(
-      eq(studySessions.courseId, courseId),
-      eq(studySessions.userId, userId),
-      eq(studySessions.mode, mode),
-      eq(studySessions.subMode, subMode),
-      isNull(studySessions.completedAt),
-    ))
-    .orderBy(studySessions.startedAt)
-    .limit(1)
-    .get();
-  if (existing) return existing;
+  if (courseId) {
+    const course = db.select({ id: courses.id }).from(courses)
+      .where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
+    if (!course) throw new Error("Course not found");
+  }
 
-  const [session] = writeTransaction(db, () =>
-    db.insert(studySessions).values({
-      deckId: null,
-      courseId,
-      mode,
-      subMode,
+  return writeTransaction(db, () => {
+    const existing = db.select().from(studySessions)
+      .where(and(
+        eq(studySessions.userId, userId),
+        isNull(studySessions.completedAt),
+        isNull(studySessions.discardedAt),
+      ))
+      .orderBy(desc(studySessions.startedAt))
+      .limit(1)
+      .get();
+    if (existing) return existing;
+
+    const [session] = db.insert(studySessions).values({
       userId,
-    }).returning().all()
-  );
-  return session;
+      courseId: courseId ?? null,
+      title: title ?? null,
+    }).returning().all();
+    return session;
+  });
 }
 
-export async function startQuizStudySession(quizId: number) {
+export async function getActiveSession() {
   const { userId } = await requireAuth();
   const db = getDb();
-  const quiz = db.select({ id: quizzes.id }).from(quizzes)
-    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
-  if (!quiz) throw new Error("Quiz not found");
-
-  // Resume an incomplete session if one exists
-  const existing = db.select().from(studySessions)
+  return db.select().from(studySessions)
     .where(and(
-      eq(studySessions.quizId, quizId),
       eq(studySessions.userId, userId),
-      eq(studySessions.mode, "quiz"),
       isNull(studySessions.completedAt),
+      isNull(studySessions.discardedAt),
     ))
-    .orderBy(studySessions.startedAt)
+    .orderBy(desc(studySessions.startedAt))
     .limit(1)
-    .get();
-  if (existing) return existing;
+    .get() ?? null;
+}
 
-  const [session] = writeTransaction(db, () =>
-    db.insert(studySessions).values({
-      quizId,
-      mode: "quiz",
-      userId,
-    }).returning().all()
+export async function getActiveActivity(sessionId: number) {
+  z.number().int().positive().parse(sessionId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+  return db.select({
+    id: sessionActivities.id,
+    type: sessionActivities.type,
+    deckId: sessionActivities.deckId,
+    quizId: sessionActivities.quizId,
+    materialId: sessionActivities.materialId,
+    startedAt: sessionActivities.startedAt,
+  })
+    .from(sessionActivities)
+    .innerJoin(studySessions, eq(sessionActivities.sessionId, studySessions.id))
+    .where(and(
+      eq(sessionActivities.sessionId, sessionId),
+      eq(studySessions.userId, userId),
+      isNull(sessionActivities.completedAt),
+    ))
+    .orderBy(desc(sessionActivities.startedAt))
+    .limit(1)
+    .get() ?? null;
+}
+
+export async function startActivity(
+  sessionId: number,
+  type: "flashcard_review" | "quiz_answer" | "reading",
+  opts: { deckId?: number; quizId?: number; materialId?: number }
+) {
+  z.number().int().positive().parse(sessionId);
+  z.enum(["flashcard_review", "quiz_answer", "reading"]).parse(type);
+  if (opts.deckId !== undefined) z.number().int().positive().parse(opts.deckId);
+  if (opts.quizId !== undefined) z.number().int().positive().parse(opts.quizId);
+  if (opts.materialId !== undefined) z.number().int().positive().parse(opts.materialId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  if (type === "quiz_answer" && !opts.quizId && !opts.deckId) throw new Error("quiz_answer requires quizId or deckId");
+  if (type === "reading" && !opts.materialId) throw new Error("reading requires materialId");
+
+  if (opts.deckId) {
+    const deck = db.select({ id: decks.id }).from(decks)
+      .where(and(eq(decks.id, opts.deckId), eq(decks.userId, userId))).get();
+    if (!deck) throw new Error("Deck not found");
+  }
+  if (opts.quizId) {
+    const quiz = db.select({ id: quizzes.id }).from(quizzes)
+      .where(and(eq(quizzes.id, opts.quizId), eq(quizzes.userId, userId))).get();
+    if (!quiz) throw new Error("Quiz not found");
+  }
+  if (opts.materialId) {
+    const material = db.select({ id: materials.id }).from(materials)
+      .where(and(eq(materials.id, opts.materialId), eq(materials.userId, userId))).get();
+    if (!material) throw new Error("Material not found");
+  }
+
+  const [activity] = writeTransaction(db, () => {
+    const session = db.select({ id: studySessions.id })
+      .from(studySessions)
+      .where(and(
+        eq(studySessions.id, sessionId),
+        eq(studySessions.userId, userId),
+        isNull(studySessions.completedAt),
+        isNull(studySessions.discardedAt),
+      ))
+      .get();
+    if (!session) throw new Error("Session not found or not active");
+
+    db.update(sessionActivities)
+      .set({ completedAt: new Date() })
+      .where(and(
+        eq(sessionActivities.sessionId, sessionId),
+        isNull(sessionActivities.completedAt),
+      ))
+      .run();
+
+    return db.insert(sessionActivities).values({
+      sessionId,
+      type,
+      deckId: opts.deckId ?? null,
+      quizId: opts.quizId ?? null,
+      materialId: opts.materialId ?? null,
+    }).returning().all();
+  });
+  return activity;
+}
+
+export async function completeActivity(activityId: number) {
+  z.number().int().positive().parse(activityId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const activity = db.select({
+    id: sessionActivities.id,
+    sessionId: sessionActivities.sessionId,
+  })
+    .from(sessionActivities)
+    .innerJoin(studySessions, eq(sessionActivities.sessionId, studySessions.id))
+    .where(and(
+      eq(sessionActivities.id, activityId),
+      eq(studySessions.userId, userId),
+    ))
+    .get();
+  if (!activity) throw new Error("Activity not found");
+
+  writeTransaction(db, () =>
+    db.update(sessionActivities)
+      .set({ completedAt: new Date() })
+      .where(eq(sessionActivities.id, activityId))
+      .run()
   );
-  return session;
 }
 
 interface FlashcardRow {

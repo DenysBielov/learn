@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { quizQuestions, questionOptions, quizResults, decks, studySessions, quizzes, courseSteps, materials } from "@flashcards/database/schema";
+import { quizQuestions, questionOptions, quizResults, decks, studySessions, sessionActivities, quizzes, courseSteps, materials } from "@flashcards/database/schema";
 import { createQuizQuestionSchema } from "@flashcards/database/validation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { getDescendantDeckIds, getDescendantQuizIds } from "@flashcards/database/courses";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
@@ -81,12 +81,15 @@ export async function getQuizQuestions(deckId: number, tagIds?: number[]) {
 }
 
 export async function submitQuizAnswer(
-  sessionId: number,
+  sessionId: number | null,
+  activityId: number | null,
   questionId: number,
   correct: boolean,
   userAnswer: string,
   timeSpentMs: number
 ) {
+  if (sessionId !== null) z.number().int().positive().parse(sessionId);
+  if (activityId !== null) z.number().int().positive().parse(activityId);
   const { userId } = await requireAuth();
   const db = getDb();
 
@@ -101,14 +104,32 @@ export async function submitQuizAnswer(
   }
   if (!question) throw new Error("Question not found");
 
-  // Verify session belongs to user
-  const session = db.select({ id: studySessions.id }).from(studySessions)
-    .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId))).get();
-  if (!session) throw new Error("Session not found");
+  if (sessionId !== null) {
+    const session = db.select({ id: studySessions.id, discardedAt: studySessions.discardedAt }).from(studySessions)
+      .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId))).get();
+    if (!session) throw new Error("Session not found");
+    if (session.discardedAt) throw new Error("Session is discarded");
+  }
+
+  if (activityId !== null) {
+    const activity = db.select({ id: sessionActivities.id, sessionId: sessionActivities.sessionId })
+      .from(sessionActivities)
+      .innerJoin(studySessions, eq(sessionActivities.sessionId, studySessions.id))
+      .where(and(
+        eq(sessionActivities.id, activityId),
+        eq(studySessions.userId, userId),
+      ))
+      .get();
+    if (!activity) throw new Error("Activity not found");
+    if (sessionId !== null && activity.sessionId !== sessionId) {
+      throw new Error("Activity does not belong to the specified session");
+    }
+  }
 
   writeTransaction(db, () =>
     db.insert(quizResults).values({
-      sessionId,
+      sessionId: sessionId ?? null,
+      activityId: activityId ?? null,
       questionId,
       correct,
       userAnswer: userAnswer.slice(0, 10000),
