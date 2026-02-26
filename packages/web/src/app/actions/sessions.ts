@@ -1,9 +1,10 @@
 "use server";
 
+import { z } from "zod";
 import { getDb } from "@flashcards/database";
-import { studySessions, flashcardResults, quizResults, courses } from "@flashcards/database/schema";
+import { studySessions, sessionActivities, flashcardResults, quizResults, courses, decks, quizzes } from "@flashcards/database/schema";
 import { requireAuth } from "@/lib/auth";
-import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
 export async function getSessions() {
   const { userId } = await requireAuth();
@@ -14,28 +15,59 @@ export async function getSessions() {
     .orderBy(desc(studySessions.startedAt))
     .all();
 
+  if (sessions.length === 0) return [];
+
+  const sessionIds = sessions.map(s => s.id);
+
+  const allActivities = db.select().from(sessionActivities)
+    .where(inArray(sessionActivities.sessionId, sessionIds))
+    .all();
+
+  const allDeckIds = [...new Set(allActivities.filter(a => a.deckId).map(a => a.deckId!))];
+  const deckNameMap = new Map<number, string>();
+  if (allDeckIds.length > 0) {
+    const deckRows = db.select({ id: decks.id, name: decks.name }).from(decks)
+      .where(inArray(decks.id, allDeckIds)).all();
+    for (const d of deckRows) deckNameMap.set(d.id, d.name);
+  }
+
+  const allCourseIds = [...new Set(sessions.filter(s => s.courseId).map(s => s.courseId!))];
+  const courseNameMap = new Map<number, string>();
+  if (allCourseIds.length > 0) {
+    const courseRows = db.select({ id: courses.id, name: courses.name }).from(courses)
+      .where(inArray(courses.id, allCourseIds)).all();
+    for (const c of courseRows) courseNameMap.set(c.id, c.name);
+  }
+
+  const cardCounts = db.select({
+    sessionId: flashcardResults.sessionId,
+    count: count(),
+  }).from(flashcardResults)
+    .where(inArray(flashcardResults.sessionId, sessionIds))
+    .groupBy(flashcardResults.sessionId)
+    .all();
+  const cardCountMap = new Map(cardCounts.map(c => [c.sessionId, c.count]));
+
+  const quizCounts = db.select({
+    sessionId: quizResults.sessionId,
+    count: count(),
+  }).from(quizResults)
+    .where(inArray(quizResults.sessionId, sessionIds))
+    .groupBy(quizResults.sessionId)
+    .all();
+  const quizCountMap = new Map(quizCounts.map(c => [c.sessionId, c.count]));
+
   return sessions.map(session => {
-    const course = session.courseId
-      ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
-      : null;
-
-    const cardStats = db.select({
-      reviewed: count(),
-    }).from(flashcardResults)
-      .where(eq(flashcardResults.sessionId, session.id))
-      .get();
-
-    const quizStats = db.select({
-      answered: count(),
-    }).from(quizResults)
-      .where(eq(quizResults.sessionId, session.id))
-      .get();
+    const activities = allActivities.filter(a => a.sessionId === session.id);
+    const deckIds = [...new Set(activities.filter(a => a.deckId).map(a => a.deckId!))];
+    const deckNames = deckIds.map(id => deckNameMap.get(id)).filter(Boolean);
 
     return {
       ...session,
-      courseName: course?.name ?? null,
-      cardsReviewed: cardStats?.reviewed ?? 0,
-      questionsAnswered: quizStats?.answered ?? 0,
+      courseName: session.courseId ? courseNameMap.get(session.courseId) ?? null : null,
+      deckNames,
+      cardsReviewed: cardCountMap.get(session.id) ?? 0,
+      questionsAnswered: quizCountMap.get(session.id) ?? 0,
     };
   });
 }
@@ -136,6 +168,54 @@ export async function getSession(id: number) {
     ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
     : null;
 
+  const activities = db.select().from(sessionActivities)
+    .where(eq(sessionActivities.sessionId, session.id))
+    .orderBy(asc(sessionActivities.startedAt))
+    .all();
+
+  const allDeckIds = [...new Set(activities.filter(a => a.deckId).map(a => a.deckId!))];
+  const deckNameMap = new Map<number, string>();
+  if (allDeckIds.length > 0) {
+    const deckRows = db.select({ id: decks.id, name: decks.name }).from(decks)
+      .where(inArray(decks.id, allDeckIds)).all();
+    for (const d of deckRows) deckNameMap.set(d.id, d.name);
+  }
+
+  const allQuizIds = [...new Set(activities.filter(a => a.quizId).map(a => a.quizId!))];
+  const quizNameMap = new Map<number, string>();
+  if (allQuizIds.length > 0) {
+    const quizRows = db.select({ id: quizzes.id, title: quizzes.title }).from(quizzes)
+      .where(inArray(quizzes.id, allQuizIds)).all();
+    for (const q of quizRows) quizNameMap.set(q.id, q.title);
+  }
+
+  const activityIds = activities.map(a => a.id);
+  const cardCounts = activityIds.length > 0 ? db.select({
+    activityId: flashcardResults.activityId,
+    count: count(),
+  }).from(flashcardResults)
+    .where(inArray(flashcardResults.activityId, activityIds))
+    .groupBy(flashcardResults.activityId)
+    .all() : [];
+  const cardCountMap = new Map(cardCounts.map(c => [c.activityId, c.count]));
+
+  const questionCounts = activityIds.length > 0 ? db.select({
+    activityId: quizResults.activityId,
+    count: count(),
+  }).from(quizResults)
+    .where(inArray(quizResults.activityId, activityIds))
+    .groupBy(quizResults.activityId)
+    .all() : [];
+  const questionCountMap = new Map(questionCounts.map(c => [c.activityId, c.count]));
+
+  const enrichedActivities = activities.map(activity => ({
+    ...activity,
+    deckName: activity.deckId ? deckNameMap.get(activity.deckId) ?? null : null,
+    quizName: activity.quizId ? quizNameMap.get(activity.quizId) ?? null : null,
+    cardCount: cardCountMap.get(activity.id) ?? 0,
+    questionCount: questionCountMap.get(activity.id) ?? 0,
+  }));
+
   const cardReviews = db.select().from(flashcardResults)
     .where(eq(flashcardResults.sessionId, session.id))
     .all();
@@ -144,7 +224,6 @@ export async function getSession(id: number) {
     .where(eq(quizResults.sessionId, session.id))
     .all();
 
-  // Related sessions (same course)
   const relatedSessions = session.courseId
     ? db.select().from(studySessions)
         .where(and(
@@ -161,6 +240,7 @@ export async function getSession(id: number) {
   return {
     ...session,
     courseName: course?.name ?? null,
+    activities: enrichedActivities,
     cardReviews,
     quizAnswers: quizAnswersList,
     relatedSessions: relatedSessions.map(s => ({
@@ -258,21 +338,33 @@ export type SessionFilters = {
 };
 
 export async function getFilteredSessions(filters: SessionFilters) {
+  const filtersSchema = z.object({
+    query: z.string().max(200).optional(),
+    courseId: z.number().int().positive().optional(),
+    dateRange: z.enum(["today", "week", "month", "year"]).optional(),
+    status: z.enum(["active", "completed", "discarded"]).optional(),
+    sortBy: z.enum(["date", "duration"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+    cursor: z.number().int().positive().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  });
+  const validated = filtersSchema.parse(filters);
+
   const { userId } = await requireAuth();
   const db = getDb();
-  const limit = filters.limit ?? 20;
+  const limit = validated.limit ?? 20;
 
   // Build WHERE conditions
   const conditions = [eq(studySessions.userId, userId)];
 
-  if (filters.courseId) {
-    conditions.push(eq(studySessions.courseId, filters.courseId));
+  if (validated.courseId) {
+    conditions.push(eq(studySessions.courseId, validated.courseId));
   }
 
-  if (filters.dateRange) {
+  if (validated.dateRange) {
     const now = new Date();
     let rangeStart: Date;
-    switch (filters.dateRange) {
+    switch (validated.dateRange) {
       case "today":
         rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
@@ -292,26 +384,26 @@ export async function getFilteredSessions(filters: SessionFilters) {
     conditions.push(gte(studySessions.startedAt, rangeStart));
   }
 
-  if (filters.status === "discarded") {
+  if (validated.status === "discarded") {
     conditions.push(isNotNull(studySessions.discardedAt));
   } else {
     conditions.push(isNull(studySessions.discardedAt));
-    if (filters.status === "active") {
+    if (validated.status === "active") {
       conditions.push(isNull(studySessions.completedAt));
-    } else if (filters.status === "completed") {
+    } else if (validated.status === "completed") {
       conditions.push(isNotNull(studySessions.completedAt));
     }
   }
 
   // Cursor-based pagination
-  if (filters.cursor) {
+  if (validated.cursor) {
     const cursorSession = db.select({ startedAt: studySessions.startedAt })
       .from(studySessions)
-      .where(eq(studySessions.id, filters.cursor))
+      .where(eq(studySessions.id, validated.cursor))
       .get();
 
     if (cursorSession) {
-      const sortOrder = filters.sortOrder ?? "desc";
+      const sortOrder = validated.sortOrder ?? "desc";
       if (sortOrder === "desc") {
         conditions.push(lt(studySessions.startedAt, cursorSession.startedAt));
       } else {
@@ -320,7 +412,7 @@ export async function getFilteredSessions(filters: SessionFilters) {
     }
   }
 
-  const orderDir = filters.sortOrder === "asc" ? asc : desc;
+  const orderDir = validated.sortOrder === "asc" ? asc : desc;
 
   // For duration sorting we need to sort client-side after enrichment,
   // so always fetch by date for the DB query
@@ -333,23 +425,53 @@ export async function getFilteredSessions(filters: SessionFilters) {
   const hasMore = sessions.length > limit;
   const sliced = hasMore ? sessions.slice(0, limit) : sessions;
 
-  // Enrich sessions
+  // Batch-load activities and deck names
+  const sessionIds = sliced.map(s => s.id);
+  const allActivities = sessionIds.length > 0 ? db.select().from(sessionActivities)
+    .where(inArray(sessionActivities.sessionId, sessionIds))
+    .all() : [];
+
+  const allDeckIds = [...new Set(allActivities.filter(a => a.deckId).map(a => a.deckId!))];
+  const deckNameMap = new Map<number, string>();
+  if (allDeckIds.length > 0) {
+    const deckRows = db.select({ id: decks.id, name: decks.name }).from(decks)
+      .where(inArray(decks.id, allDeckIds)).all();
+    for (const d of deckRows) deckNameMap.set(d.id, d.name);
+  }
+
+  // Batch-load courses
+  const allCourseIds = [...new Set(sliced.filter(s => s.courseId).map(s => s.courseId!))];
+  const courseNameMap = new Map<number, { name: string; color: string }>();
+  if (allCourseIds.length > 0) {
+    const courseRows = db.select({ id: courses.id, name: courses.name, color: courses.color }).from(courses)
+      .where(inArray(courses.id, allCourseIds)).all();
+    for (const c of courseRows) courseNameMap.set(c.id, { name: c.name, color: c.color });
+  }
+
+  // Batch-load card/quiz counts
+  const cardCounts = sessionIds.length > 0 ? db.select({
+    sessionId: flashcardResults.sessionId,
+    count: count(),
+  }).from(flashcardResults)
+    .where(inArray(flashcardResults.sessionId, sessionIds))
+    .groupBy(flashcardResults.sessionId)
+    .all() : [];
+  const cardCountMap = new Map(cardCounts.map(c => [c.sessionId, c.count]));
+
+  const quizCounts = sessionIds.length > 0 ? db.select({
+    sessionId: quizResults.sessionId,
+    count: count(),
+  }).from(quizResults)
+    .where(inArray(quizResults.sessionId, sessionIds))
+    .groupBy(quizResults.sessionId)
+    .all() : [];
+  const quizCountMap = new Map(quizCounts.map(c => [c.sessionId, c.count]));
+
   const enriched = sliced.map(session => {
-    const course = session.courseId
-      ? db.select().from(courses).where(eq(courses.id, session.courseId)).get()
-      : null;
-
-    const cardStats = db.select({
-      reviewed: count(),
-    }).from(flashcardResults)
-      .where(eq(flashcardResults.sessionId, session.id))
-      .get();
-
-    const quizStats = db.select({
-      answered: count(),
-    }).from(quizResults)
-      .where(eq(quizResults.sessionId, session.id))
-      .get();
+    const activities = allActivities.filter(a => a.sessionId === session.id);
+    const sessionDeckIds = [...new Set(activities.filter(a => a.deckId).map(a => a.deckId!))];
+    const deckNames = sessionDeckIds.map(id => deckNameMap.get(id)).filter(Boolean) as string[];
+    const courseData = session.courseId ? courseNameMap.get(session.courseId) : null;
 
     const duration = session.startedAt && session.completedAt
       ? (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000
@@ -357,31 +479,34 @@ export async function getFilteredSessions(filters: SessionFilters) {
 
     return {
       ...session,
-      courseName: course?.name ?? null,
-      courseColor: course?.color ?? null,
-      cardsReviewed: cardStats?.reviewed ?? 0,
-      questionsAnswered: quizStats?.answered ?? 0,
+      courseName: courseData?.name ?? null,
+      courseColor: courseData?.color ?? null,
+      deckNames,
+      cardsReviewed: cardCountMap.get(session.id) ?? 0,
+      questionsAnswered: quizCountMap.get(session.id) ?? 0,
       duration,
     };
   });
 
-  // Apply text search filter (post-query)
+  // Text search filter
   let filtered = enriched;
-  if (filters.query) {
-    const q = filters.query.toLowerCase();
+  if (validated.query) {
+    const q = validated.query.toLowerCase();
     filtered = enriched.filter(s =>
       (s.summary && s.summary.toLowerCase().includes(q)) ||
       (s.courseName && s.courseName.toLowerCase().includes(q)) ||
+      (s.deckNames?.some(n => n.toLowerCase().includes(q))) ||
+      (s.title && s.title.toLowerCase().includes(q)) ||
       (s.notes && s.notes.toLowerCase().includes(q))
     );
   }
 
   // Duration sorting (client-side since it's computed)
-  if (filters.sortBy === "duration") {
+  if (validated.sortBy === "duration") {
     filtered.sort((a, b) => {
       const aDur = a.duration ?? 0;
       const bDur = b.duration ?? 0;
-      return filters.sortOrder === "asc" ? aDur - bDur : bDur - aDur;
+      return validated.sortOrder === "asc" ? aDur - bDur : bDur - aDur;
     });
   }
 
