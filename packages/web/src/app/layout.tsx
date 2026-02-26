@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import { ActiveSessionProvider } from "@/components/active-session-provider";
 import { Nav } from "@/components/nav";
 import { RealtimeProvider } from "@/components/realtime-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { ThemeProvider } from "@/components/theme-provider";
+import { getActiveSession } from "@/app/actions/flashcards";
 import { getAuthUser } from "@/lib/auth";
 
 const inter = Inter({
@@ -35,6 +37,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getAuthUser();
+  const initialSession = user ? await getActiveSession() : null;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -47,9 +50,15 @@ export default async function RootLayout({
             {user && <Nav />}
             {user && <ServiceWorkerRegister />}
             {user && <RealtimeProvider />}
-            <main className={`flex-1 ${user ? "md:pl-16 lg:pl-64 pb-16 md:pb-0" : ""}`}>
-              {children}
-            </main>
+            {user ? (
+              <ActiveSessionProvider initialSession={initialSession}>
+                <main className="flex-1 md:pl-16 lg:pl-64 pb-16 md:pb-0">
+                  {children}
+                </main>
+              </ActiveSessionProvider>
+            ) : (
+              <main className="flex-1">{children}</main>
+            )}
           </div>
         </ThemeProvider>
       </body>
