@@ -10,12 +10,8 @@ import { RichContent } from "@/components/rich-content";
 import { LearningMaterials } from "@/components/learning-materials";
 import { SessionPanel } from "@/components/session-panel";
 import { FlagButtons } from "@/components/flag-buttons";
-import {
-  reviewFlashcard,
-  startStudySession,
-  startCourseStudySession,
-  completeStudySession,
-} from "@/app/actions/flashcards";
+import { reviewFlashcard } from "@/app/actions/flashcards";
+import { useActiveSession } from "@/components/active-session-provider";
 import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen, ChevronLeft } from "lucide-react";
 import { TagBadge } from "@/components/tag-badge";
@@ -46,7 +42,6 @@ interface FlashcardStudyProps {
   deckName: string;
   cards: Flashcard[];
   courseId?: number;
-  subMode?: string;
   activeFilterTags?: ActiveFilterTag[];
 }
 
@@ -55,12 +50,10 @@ export function FlashcardStudy({
   deckName,
   cards,
   courseId,
-  subMode,
   activeFilterTags,
 }: FlashcardStudyProps) {
   const router = useRouter();
-  const [sessionId, setSessionId] = useState<number | null>(null);
-  const [sessionNotes, setSessionNotes] = useState<string>("");
+  const { session, currentActivity, endActivity } = useActiveSession();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,18 +78,6 @@ export function FlashcardStudy({
     const timer = setTimeout(measure, 200);
     return () => clearTimeout(timer);
   }, [currentIndex]);
-
-  // Initialize study session on mount
-  useEffect(() => {
-    const initSession = async () => {
-      const session = courseId
-        ? await startCourseStudySession(courseId, "flashcard", subMode ?? "review_due")
-        : await startStudySession(deckId, "flashcard");
-      setSessionId(session.id);
-      setSessionNotes(session.notes ?? "");
-    };
-    initSession();
-  }, [deckId, courseId, subMode]);
 
   const handleFlip = useCallback(() => {
     if (!isSubmitting && !window.getSelection()?.toString()) {
@@ -159,14 +140,14 @@ export function FlashcardStudy({
   }, [isFlipped, isSubmitting, completed, goBack]);
 
   const handleRating = async (rating: Sm2Rating) => {
-    if (!sessionId || isSubmitting) return;
+    if (isSubmitting) return;
 
     const isReRating = !!results[currentIndex];
     setIsSubmitting(true);
     const timeSpentMs = Date.now() - startTime;
 
     try {
-      await reviewFlashcard(cards[currentIndex].id, sessionId, rating, timeSpentMs);
+      await reviewFlashcard(cards[currentIndex].id, session?.id ?? null, currentActivity?.id ?? null, rating, timeSpentMs);
 
       setResults(prev => {
         const updated = [...prev];
@@ -183,8 +164,10 @@ export function FlashcardStudy({
         setIsFlipped(false);
         setStartTime(Date.now());
       } else {
-        // Session complete
-        await completeStudySession(sessionId);
+        // Deck complete
+        if (session && currentActivity) {
+          await endActivity();
+        }
         setCompleted(true);
       }
     } catch (error) {
@@ -195,14 +178,14 @@ export function FlashcardStudy({
   };
 
   const handleSkip = async () => {
-    if (!sessionId || isSubmitting || skipping) return;
+    if (isSubmitting || skipping) return;
 
     setSkipping(true);
     const timeSpentMs = Date.now() - startTime;
 
     try {
       await Promise.all([
-        reviewFlashcard(cards[currentIndex].id, sessionId, "again", timeSpentMs),
+        reviewFlashcard(cards[currentIndex].id, session?.id ?? null, currentActivity?.id ?? null, "again", timeSpentMs),
         toggleFlag("requires_more_study", cards[currentIndex].id),
       ]);
 
@@ -218,7 +201,9 @@ export function FlashcardStudy({
         setIsFlipped(false);
         setStartTime(Date.now());
       } else {
-        await completeStudySession(sessionId);
+        if (session && currentActivity) {
+          await endActivity();
+        }
         setCompleted(true);
       }
     } catch (error) {
@@ -273,7 +258,7 @@ export function FlashcardStudy({
               </div>
             </div>
 
-            {sessionId && <CompletionNotes sessionId={sessionId} />}
+            {session && <CompletionNotes sessionId={session.id} />}
 
             <div className="flex gap-3">
               <Button onClick={() => router.push(courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
@@ -464,11 +449,11 @@ export function FlashcardStudy({
       </div>
 
       {/* Chat sidebar */}
-      {sessionId && (
+      {session && (
         <SessionPanel
-          sessionId={sessionId}
+          sessionId={session.id}
           currentFlashcardId={currentCard.id}
-          initialNotes={sessionNotes}
+          initialNotes={""}
         />
       )}
     </div>

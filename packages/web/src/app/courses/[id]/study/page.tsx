@@ -84,7 +84,6 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
       deckName={course.name}
       cards={cards}
       courseId={courseId}
-      subMode={subMode}
     />
   );
 }

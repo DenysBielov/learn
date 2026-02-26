@@ -6,13 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RichContent } from "@/components/rich-content";
-import {
-  startStudySession,
-  startCourseStudySession,
-  startQuizStudySession,
-  completeStudySession,
-} from "@/app/actions/flashcards";
 import { submitQuizAnswer } from "@/app/actions/quiz";
+import { useActiveSession } from "@/components/active-session-provider";
 import { MultipleChoice } from "@/components/question-types/multiple-choice";
 import { TrueFalse } from "@/components/question-types/true-false";
 import { FreeText } from "@/components/question-types/free-text";
@@ -70,8 +65,7 @@ interface AnswerResult {
 
 export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, activeFilterTags }: QuizPlayerProps) {
   const router = useRouter();
-  const [sessionId, setSessionId] = useState<number | null>(null);
-  const [sessionNotes, setSessionNotes] = useState<string>("");
+  const { session, currentActivity, endActivity } = useActiveSession();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [result, setResult] = useState<AnswerResult | null>(null);
@@ -107,23 +101,6 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
     }
   }, [currentIndex, skipping, navigateToQuestion]);
 
-  // Initialize quiz session on mount
-  useEffect(() => {
-    const initSession = async () => {
-      let session;
-      if (quizId) {
-        session = await startQuizStudySession(quizId);
-      } else if (courseId) {
-        session = await startCourseStudySession(courseId, "quiz", "default");
-      } else {
-        session = await startStudySession(deckId, "quiz");
-      }
-      setSessionId(session.id);
-      setSessionNotes(session.notes ?? "");
-    };
-    initSession();
-  }, [quizId, deckId, courseId]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -142,7 +119,7 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
   }, [completed, skipping, goBack]);
 
   const handleAnswer = async (isCorrect: boolean, userAnswer: string) => {
-    if (!sessionId || answered) return;
+    if (answered) return;
 
     const timeSpentMs = Date.now() - startTime;
     const newResult = { correct: isCorrect, userAnswer };
@@ -159,7 +136,8 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
 
     try {
       await submitQuizAnswer(
-        sessionId,
+        session?.id ?? null,
+        currentActivity?.id ?? null,
         questions[currentIndex].id,
         isCorrect,
         userAnswer,
@@ -177,15 +155,15 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
       navigateToQuestion(currentIndex + 1);
     } else {
       // Quiz complete
-      if (sessionId) {
-        await completeStudySession(sessionId);
+      if (session && currentActivity) {
+        await endActivity();
       }
       setCompleted(true);
     }
   };
 
   const handleSkip = async () => {
-    if (!sessionId || answered || skipping) return;
+    if (answered || skipping) return;
 
     setSkipping(true);
     const timeSpentMs = Date.now() - startTime;
@@ -193,7 +171,7 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
 
     try {
       await Promise.all([
-        submitQuizAnswer(sessionId, questions[currentIndex].id, false, "[skipped]", timeSpentMs),
+        submitQuizAnswer(session?.id ?? null, currentActivity?.id ?? null, questions[currentIndex].id, false, "[skipped]", timeSpentMs),
         toggleFlag("requires_more_study", undefined, questions[currentIndex].id),
       ]);
 
@@ -206,7 +184,9 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
       if (currentIndex < questions.length - 1) {
         navigateToQuestion(currentIndex + 1);
       } else {
-        await completeStudySession(sessionId);
+        if (session && currentActivity) {
+          await endActivity();
+        }
         setCompleted(true);
       }
     } catch (error) {
@@ -253,7 +233,7 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
             </div>
           </div>
 
-          {sessionId && <CompletionNotes sessionId={sessionId} />}
+          {session && <CompletionNotes sessionId={session.id} />}
 
           <div className="flex gap-3">
             <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
@@ -467,12 +447,12 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
       </div>
 
       {/* Chat sidebar */}
-      {sessionId && (
+      {session && (
         <SessionPanel
-          sessionId={sessionId}
+          sessionId={session.id}
           currentQuestionId={currentQuestion.id}
           currentUserAnswer={result?.userAnswer}
-          initialNotes={sessionNotes}
+          initialNotes={""}
         />
       )}
     </div>
