@@ -71,7 +71,7 @@ export function Nav() {
               );
             })}
           </nav>
-          <div className="px-2 lg:px-3 pb-4">
+          <div className="px-2 lg:px-3 pb-4 space-y-2">
             <button
               onClick={handleLogout}
               title="Sign out"
@@ -80,6 +80,11 @@ export function Nav() {
               <LogOut className="h-5 w-5 flex-shrink-0 lg:mr-3" />
               <span className="hidden lg:inline">Sign out</span>
             </button>
+            {process.env.NEXT_PUBLIC_APP_VERSION && (
+              <p className="text-[10px] text-muted-foreground/50 text-center lg:text-left lg:px-3">
+                v{process.env.NEXT_PUBLIC_APP_VERSION}
+              </p>
+            )}
           </div>
         </div>
       </aside>
