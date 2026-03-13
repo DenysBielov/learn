@@ -332,6 +332,85 @@ export async function getCourseJourney(courseId: number) {
   }));
 }
 
+export async function getNextStudyStep(courseId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  // Include steps from this course and all descendant sub-courses
+  const steps = db.all<{
+    id: number;
+    step_type: string;
+    material_id: number | null;
+    quiz_id: number | null;
+    is_completed: number | null;
+    course_id: number;
+    position: number;
+  }>(sql`
+    WITH RECURSIVE descendant_courses AS (
+      SELECT id FROM course WHERE id = ${courseId}
+      UNION ALL
+      SELECT c.id FROM course c JOIN descendant_courses dc ON c.parent_id = dc.id
+    )
+    SELECT cs.id, cs.step_type, cs.material_id, cs.quiz_id, sp.is_completed, cs.course_id, cs.position
+    FROM course_step cs
+    LEFT JOIN step_progress sp ON sp.course_step_id = cs.id AND sp.user_id = ${userId}
+    WHERE cs.course_id IN (SELECT id FROM descendant_courses)
+    ORDER BY cs.course_id, cs.position
+  `);
+
+  const firstIncomplete = steps.find(s => !s.is_completed);
+
+  if (firstIncomplete) {
+    return {
+      status: "continue" as const,
+      stepType: firstIncomplete.step_type as "material" | "quiz",
+      materialId: firstIncomplete.material_id,
+      quizId: firstIncomplete.quiz_id,
+    };
+  }
+
+  // Only query deck count when all steps are completed
+  const hasDecks = db.get<{ count: number }>(sql`
+    WITH RECURSIVE descendant_courses AS (
+      SELECT id FROM course WHERE id = ${courseId}
+      UNION ALL
+      SELECT c.id FROM course c JOIN descendant_courses dc ON c.parent_id = dc.id
+    )
+    SELECT COUNT(*) as count FROM course_deck WHERE course_id IN (SELECT id FROM descendant_courses)
+  `)?.count ?? 0;
+
+  return {
+    status: "completed" as const,
+    hasSteps: steps.length > 0,
+    hasDecks: hasDecks > 0,
+  };
+}
+
+export async function resetCourseProgress(courseId: number) {
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  writeTransaction(db, () => {
+    db.run(sql`
+      DELETE FROM step_progress
+      WHERE user_id = ${userId}
+        AND course_step_id IN (
+          SELECT cs.id FROM course_step cs
+          WHERE cs.course_id IN (
+            WITH RECURSIVE descendant_courses AS (
+              SELECT id FROM course WHERE id = ${courseId}
+              UNION ALL
+              SELECT c.id FROM course c JOIN descendant_courses dc ON c.parent_id = dc.id
+            )
+            SELECT id FROM descendant_courses
+          )
+        )
+    `);
+  });
+
+  revalidatePath(`/courses/${courseId}`);
+}
+
 export async function reorderCourseSteps(courseId: number, stepIds: number[]) {
   const { userId } = await requireAuth();
   const db = getDb();
@@ -374,7 +453,7 @@ export async function toggleStepComplete(stepId: number, completed: boolean) {
   const { userId } = await requireAuth();
   const db = getDb();
 
-  writeTransaction(db, () => {
+  const courseId = writeTransaction(db, () => {
     // Verify ownership via course_step → course.user_id
     const step = db.select({
       id: courseSteps.id,
@@ -410,9 +489,11 @@ export async function toggleStepComplete(stepId: number, completed: boolean) {
         completedAt: completed ? new Date() : null,
       }).run();
     }
+
+    return step.courseId;
   });
 
-  revalidatePath("/");
+  revalidatePath(`/courses/${courseId}`);
 }
 
 export async function getAvailableDecks(courseId: number) {

@@ -475,25 +475,6 @@ export async function completeActivity(activityId: number) {
   );
 }
 
-export async function getSessionQuickStats(sessionId: number) {
-  z.number().int().positive().parse(sessionId);
-  const { userId } = await requireAuth();
-  const db = getDb();
-
-  const session = db.select({ id: studySessions.id }).from(studySessions)
-    .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId))).get();
-  if (!session) throw new Error("Session not found");
-
-  const cards = db.select({ count: count() }).from(flashcardResults)
-    .where(eq(flashcardResults.sessionId, sessionId)).get();
-  const questions = db.select({ count: count() }).from(quizResults)
-    .where(eq(quizResults.sessionId, sessionId)).get();
-
-  return {
-    cardsReviewed: cards?.count ?? 0,
-    questionsAnswered: questions?.count ?? 0,
-  };
-}
 
 interface FlashcardRow {
   id: number;

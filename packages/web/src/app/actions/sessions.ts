@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { getDb } from "@flashcards/database";
-import { studySessions, sessionActivities, flashcardResults, quizResults, courses, decks, quizzes } from "@flashcards/database/schema";
+import { studySessions, sessionActivities, flashcardResults, quizResults, courses, decks, quizzes, materials, courseSteps, stepProgress, quizQuestions } from "@flashcards/database/schema";
 import { requireAuth } from "@/lib/auth";
-import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, desc, count, gte, gt, lt, asc, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 
 export async function getSessions() {
   const { userId } = await requireAuth();
@@ -528,4 +528,188 @@ export async function getUserCourses() {
   }).from(courses)
     .where(eq(courses.userId, userId))
     .all();
+}
+
+const feedDataSchema = z.object({ sessionId: z.number().int().positive() });
+
+export type FeedActivity = {
+  id: number;
+  type: "flashcard_review" | "quiz_answer" | "reading";
+  title: string | null;
+  materialId: number | null;
+  quizId: number | null;
+  deckId: number | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  progress: number;
+};
+
+export type JourneyStep = {
+  id: number;
+  stepType: "material" | "quiz";
+  title: string;
+  materialId: number | null;
+  quizId: number | null;
+  isCompleted: boolean;
+  position: number;
+};
+
+export async function getSessionFeedData(sessionId: number): Promise<{
+  activities: FeedActivity[];
+  journey: JourneyStep[] | null;
+}> {
+  feedDataSchema.parse({ sessionId });
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  // Verify ownership
+  const session = db.select().from(studySessions)
+    .where(and(eq(studySessions.id, sessionId), eq(studySessions.userId, userId)))
+    .get();
+  if (!session) throw new Error("Session not found");
+
+  // Fetch activities
+  const rawActivities = db.select().from(sessionActivities)
+    .where(eq(sessionActivities.sessionId, sessionId))
+    .orderBy(asc(sessionActivities.startedAt))
+    .all();
+
+  // Batch-load titles via LEFT JOINs
+  const activityDeckIds = [...new Set(rawActivities.filter(a => a.deckId).map(a => a.deckId!))];
+  const activityMaterialIds = [...new Set(rawActivities.filter(a => a.materialId).map(a => a.materialId!))];
+  const activityQuizIds = [...new Set(rawActivities.filter(a => a.quizId).map(a => a.quizId!))];
+
+  const deckNameMap = new Map<number, string>();
+  if (activityDeckIds.length > 0) {
+    const rows = db.select({ id: decks.id, name: decks.name }).from(decks)
+      .where(inArray(decks.id, activityDeckIds)).all();
+    for (const r of rows) deckNameMap.set(r.id, r.name);
+  }
+
+  const materialTitleMap = new Map<number, string>();
+  if (activityMaterialIds.length > 0) {
+    const rows = db.select({ id: materials.id, title: materials.title }).from(materials)
+      .where(inArray(materials.id, activityMaterialIds)).all();
+    for (const r of rows) materialTitleMap.set(r.id, r.title);
+  }
+
+  const quizTitleMap = new Map<number, string>();
+  if (activityQuizIds.length > 0) {
+    const rows = db.select({ id: quizzes.id, title: quizzes.title }).from(quizzes)
+      .where(inArray(quizzes.id, activityQuizIds)).all();
+    for (const r of rows) quizTitleMap.set(r.id, r.title);
+  }
+
+  // Compute progress for quiz activities
+  const activityIds = rawActivities.map(a => a.id);
+
+  // Count quiz results per activity
+  const quizResultCounts = activityIds.length > 0
+    ? db.select({ activityId: quizResults.activityId, count: count() }).from(quizResults)
+        .where(inArray(quizResults.activityId, activityIds))
+        .groupBy(quizResults.activityId).all()
+    : [];
+  const quizResultMap = new Map(quizResultCounts.map(r => [r.activityId, r.count]));
+
+  // Count total questions per quiz
+  const quizTotalMap = new Map<number, number>();
+  if (activityQuizIds.length > 0) {
+    const rows = db.select({ quizId: quizQuestions.quizId, count: count() }).from(quizQuestions)
+      .where(inArray(quizQuestions.quizId, activityQuizIds))
+      .groupBy(quizQuestions.quizId).all();
+    for (const r of rows) {
+      if (r.quizId) quizTotalMap.set(r.quizId, r.count);
+    }
+  }
+
+  // Count total questions per deck (only for quiz_answer activities with a deckId)
+  const quizActivityDeckIds = [...new Set(rawActivities.filter(a => a.type === "quiz_answer" && a.deckId).map(a => a.deckId!))];
+  const deckQuestionTotalMap = new Map<number, number>();
+  if (quizActivityDeckIds.length > 0) {
+    const rows = db.select({ deckId: quizQuestions.deckId, count: count() }).from(quizQuestions)
+      .where(inArray(quizQuestions.deckId, quizActivityDeckIds))
+      .groupBy(quizQuestions.deckId).all();
+    for (const r of rows) deckQuestionTotalMap.set(r.deckId, r.count);
+  }
+
+  const activitiesResult: FeedActivity[] = rawActivities.map(a => {
+    let title: string | null = null;
+    if (a.type === "reading" && a.materialId) {
+      title = materialTitleMap.get(a.materialId) ?? null;
+    } else if (a.type === "quiz_answer") {
+      title = (a.quizId ? quizTitleMap.get(a.quizId) : null)
+           ?? (a.deckId ? deckNameMap.get(a.deckId) : null)
+           ?? null;
+    } else if (a.type === "flashcard_review" && a.deckId) {
+      title = deckNameMap.get(a.deckId) ?? null;
+    }
+
+    let progress = 0;
+    if (a.type === "reading" || a.type === "flashcard_review") {
+      progress = a.completedAt ? 100 : 0;
+    } else if (a.type === "quiz_answer") {
+      const answered = quizResultMap.get(a.id) ?? 0;
+      if (a.quizId) {
+        const total = quizTotalMap.get(a.quizId) ?? 0;
+        progress = total > 0 ? Math.round((answered / total) * 100) : (a.completedAt ? 100 : 0);
+      } else if (a.deckId) {
+        const total = deckQuestionTotalMap.get(a.deckId) ?? 0;
+        progress = total > 0 ? Math.round((answered / total) * 100) : (a.completedAt ? 100 : 0);
+      } else {
+        progress = a.completedAt ? 100 : 0;
+      }
+    }
+
+    return {
+      id: a.id,
+      type: a.type as FeedActivity["type"],
+      title: title ?? "(Deleted)",
+      materialId: a.materialId,
+      quizId: a.quizId,
+      deckId: a.deckId,
+      startedAt: a.startedAt,
+      completedAt: a.completedAt,
+      progress,
+    };
+  });
+
+  // Journey data for course sessions
+  let journey: JourneyStep[] | null = null;
+  if (session.courseId) {
+    const steps = db.all<{
+      id: number;
+      position: number;
+      step_type: string;
+      material_id: number | null;
+      quiz_id: number | null;
+      title: string;
+      is_completed: number | null;
+    }>(sql`
+      WITH RECURSIVE descendant_courses AS (
+        SELECT id FROM course WHERE id = ${session.courseId}
+        UNION ALL
+        SELECT c.id FROM course c JOIN descendant_courses dc ON c.parent_id = dc.id
+      )
+      SELECT cs.id, cs.position, cs.step_type, cs.material_id, cs.quiz_id,
+        COALESCE(m.title, q.title, '(Untitled)') AS title, sp.is_completed
+      FROM course_step cs
+      LEFT JOIN material m ON cs.material_id = m.id
+      LEFT JOIN quiz q ON cs.quiz_id = q.id
+      LEFT JOIN step_progress sp ON sp.course_step_id = cs.id AND sp.user_id = ${userId}
+      WHERE cs.course_id IN (SELECT id FROM descendant_courses)
+      ORDER BY cs.course_id, cs.position
+    `);
+
+    journey = steps.map(s => ({
+      id: s.id,
+      stepType: s.step_type as "material" | "quiz",
+      title: s.title,
+      materialId: s.material_id,
+      quizId: s.quiz_id,
+      isCompleted: !!s.is_completed,
+      position: s.position,
+    }));
+  }
+
+  return { activities: activitiesResult, journey };
 }

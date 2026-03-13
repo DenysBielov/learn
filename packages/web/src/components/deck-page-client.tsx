@@ -11,6 +11,7 @@ import { BulkActionBar } from "@/components/bulk-action-bar";
 import { CreateFlashcardDialog } from "@/components/create-flashcard-dialog";
 import { CreateQuestionDialog } from "@/components/create-question-dialog";
 import Link from "next/link";
+import { DeckStudyButton } from "@/components/deck-study-button";
 import { BookOpen, Brain, RotateCcw, CheckSquare } from "lucide-react";
 import type { Tag } from "@/lib/tags";
 
@@ -196,18 +197,19 @@ export function DeckPageClient({ deck, allTags }: DeckPageClientProps) {
   return (
     <>
       <div className="flex flex-wrap gap-3">
-        <Button asChild>
-          <Link href={`/study/${deck.id}${activeTagIds.length > 0 ? `?tags=${activeTagIds.join(",")}` : ""}`}>
-            <BookOpen className="mr-2 h-4 w-4" />
-            Study Due
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={`/study/${deck.id}?mode=all${tagParam}`}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Study All
-          </Link>
-        </Button>
+        <DeckStudyButton
+          deckId={deck.id}
+          studyUrl={`/study/${deck.id}${activeTagIds.length > 0 ? `?tags=${activeTagIds.join(",")}` : ""}`}
+          label="Study Due"
+          icon={<BookOpen className="mr-2 h-4 w-4" />}
+        />
+        <DeckStudyButton
+          deckId={deck.id}
+          studyUrl={`/study/${deck.id}?mode=all${tagParam}`}
+          label="Study All"
+          icon={<RotateCcw className="mr-2 h-4 w-4" />}
+          variant="outline"
+        />
         <Button asChild variant="secondary">
           <Link href={`/quiz/${deck.id}`}>
             <Brain className="mr-2 h-4 w-4" />

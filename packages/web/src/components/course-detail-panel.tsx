@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Brain, Layers, FolderOpen, ExternalLink, Play, Clock, Loader2 } from "lucide-react";
+import { stripMarkdown } from "@/lib/route-utils";
 import { Button } from "@/components/ui/button";
-import { RichContent } from "@/components/rich-content";
 import { StepCompleteButton } from "@/components/step-complete-button";
+import { CourseStudyButton } from "@/components/course-study-button";
+import { DeckStudyButton } from "@/components/deck-study-button";
 import { getMaterialForPanel } from "@/app/actions/materials";
 import type { TreeItem } from "@/components/course-tree";
 
@@ -60,48 +62,48 @@ function MaterialStepPanel({ item }: { item: Extract<TreeItem, { type: "step" }>
       </div>
 
       {/* Material content */}
-      {item.stepType === "material" && item.materialId && (
+      {item.stepType === "material" && item.materialId && loading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {item.stepType === "material" && item.materialId && !loading && material && (
         <>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : material ? (
-            <>
-              {material.content && (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <RichContent content={material.content} />
-                </div>
-              )}
-
-              {/* Linked decks */}
-              {material.linkedDecks.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Flashcard Decks</h3>
-                  {material.linkedDecks.map((deck) => (
-                    <Link key={deck.id} href={`/study/${deck.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--card-hover)] transition-colors">
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{deck.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{deck.flashcardCount} cards</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              {/* Linked quizzes */}
-              {material.linkedQuizzes.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quizzes</h3>
-                  {material.linkedQuizzes.map((quiz) => (
-                    <Link key={quiz.id} href={`/quizzes/${quiz.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--card-hover)] transition-colors">
-                      <Brain className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{quiz.title}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </>
+          {material.description ? (
+            <p className="text-sm text-muted-foreground">{material.description}</p>
+          ) : material.content ? (
+            <p className="text-sm text-muted-foreground">
+              {stripMarkdown(material.content).slice(0, 200)}
+              {material.content.length > 200 ? "..." : ""}
+            </p>
           ) : null}
+
+          {/* Linked decks */}
+          {material.linkedDecks.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Flashcard Decks</h3>
+              {material.linkedDecks.map((deck) => (
+                <Link key={deck.id} href={`/study/${deck.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--card-hover)] transition-colors">
+                  <Layers className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{deck.name}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{deck.flashcardCount} cards</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Linked quizzes */}
+          {material.linkedQuizzes.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quizzes</h3>
+              {material.linkedQuizzes.map((quiz) => (
+                <Link key={quiz.id} href={`/quizzes/${quiz.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--card-hover)] transition-colors">
+                  <Brain className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{quiz.title}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -148,12 +150,13 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
         </div>
 
         <div className="flex gap-2">
-          <Button asChild size="sm">
-            <Link href={`/study/${item.deckId}`}>
-              <Play className="mr-2 h-4 w-4" />
-              Study
-            </Link>
-          </Button>
+          <DeckStudyButton
+            deckId={item.deckId}
+            studyUrl={`/study/${item.deckId}`}
+            label="Study"
+            icon={<Play className="mr-2 h-4 w-4" />}
+            size="sm"
+          />
           <Button asChild variant="secondary" size="sm">
             <Link href={`/decks/${item.deckId}`}>
               <ExternalLink className="mr-2 h-4 w-4" />
@@ -189,12 +192,15 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
         </div>
       </div>
 
-      <Button asChild size="sm">
-        <Link href={`/courses/${item.id}`}>
-          <ExternalLink className="mr-2 h-4 w-4" />
-          Open Course
-        </Link>
-      </Button>
+      <div className="flex gap-2">
+        <CourseStudyButton courseId={item.id} variant="sm" />
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/courses/${item.id}`}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open
+          </Link>
+        </Button>
+      </div>
 
       {item.description && (
         <p className="text-sm text-muted-foreground">{item.description}</p>

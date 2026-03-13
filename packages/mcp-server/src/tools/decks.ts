@@ -95,7 +95,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
           message: "This will delete the following. Pass confirm=true to proceed.",
           flashcards: db.select({ count: sql<number>`COUNT(*)` }).from(flashcards).where(eq(flashcards.deckId, deckId)).all()[0]?.count ?? 0,
           questions: db.select({ count: sql<number>`COUNT(*)` }).from(quizQuestions).where(eq(quizQuestions.deckId, deckId)).all()[0]?.count ?? 0,
-          studySessions: db.select({ count: sql<number>`(SELECT COUNT(*) FROM study_session WHERE deck_id = ${deckId})` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
+          studySessions: db.select({ count: sql<number>`(SELECT COUNT(DISTINCT session_id) FROM session_activity WHERE deck_id = ${deckId})` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
           courseDeckLinks: db.select({ count: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE deck_id = ${deckId})` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
           flashcardResults: db.select({ count: sql<number>`(SELECT COUNT(*) FROM flashcard_result WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
           quizResults: db.select({ count: sql<number>`(SELECT COUNT(*) FROM quiz_result WHERE question_id IN (SELECT id FROM quiz_question WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,

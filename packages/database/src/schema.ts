@@ -58,6 +58,7 @@ export const courseDecks = sqliteTable("course_deck", {
 export const materials = sqliteTable("material", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
+  description: text("description"),
   content: text("content"),
   externalUrl: text("external_url"),
   notes: text("notes"),

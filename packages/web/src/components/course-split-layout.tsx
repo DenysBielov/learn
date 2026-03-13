@@ -7,6 +7,10 @@ import { CourseTree, getItemId, type TreeItem } from "@/components/course-tree";
 import { CourseDetailPanel } from "@/components/course-detail-panel";
 import { getCourseTreeChildren } from "@/app/actions/courses";
 
+const emptyRecord: Record<string, TreeItem[]> = {};
+const emptySet = new Set<string>();
+const noop = () => {};
+
 interface CourseSplitLayoutProps {
   items: TreeItem[];
 }
@@ -80,6 +84,7 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
                 items={items}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                onNavigate={handleNavigate}
                 expandedChildren={expandedChildren}
                 loadingIds={loadingIds}
                 onToggleExpand={handleToggleExpand}
@@ -102,9 +107,10 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
           selectedId={null}
           onSelect={() => {}}
           onNavigate={handleNavigate}
-          expandedChildren={{}}
-          loadingIds={new Set()}
-          onToggleExpand={() => {}}
+          mobileMode
+          expandedChildren={emptyRecord}
+          loadingIds={emptySet}
+          onToggleExpand={noop}
         />
       </div>
     </>

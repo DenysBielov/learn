@@ -19,6 +19,7 @@ function validateUrl(url: string): void {
 
 export async function createMaterial(courseId: number, data: {
   title: string;
+  description?: string;
   content?: string;
   externalUrl?: string;
 }) {
@@ -37,6 +38,7 @@ export async function createMaterial(courseId: number, data: {
 
     const [created] = db.insert(materials).values({
       title: parsed.title,
+      description: parsed.description ?? null,
       content: content ?? null,
       externalUrl: parsed.externalUrl ?? null,
       userId,
@@ -59,6 +61,7 @@ export async function createMaterial(courseId: number, data: {
 
 export async function updateMaterial(id: number, data: {
   title?: string;
+  description?: string;
   content?: string;
   externalUrl?: string;
 }) {
@@ -75,6 +78,7 @@ export async function updateMaterial(id: number, data: {
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (parsed.title !== undefined) updates.title = parsed.title;
+    if (parsed.description !== undefined) updates.description = parsed.description;
     if (parsed.content !== undefined) updates.content = sanitizeMarkdownImageUrls(parsed.content);
     if (parsed.externalUrl !== undefined) updates.externalUrl = parsed.externalUrl;
 
@@ -225,6 +229,7 @@ export async function getMaterialForPanel(materialId: number) {
   const material = db.select({
     id: materials.id,
     title: materials.title,
+    description: materials.description,
     content: materials.content,
     externalUrl: materials.externalUrl,
   }).from(materials)

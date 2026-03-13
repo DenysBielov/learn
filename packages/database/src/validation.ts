@@ -221,6 +221,7 @@ export const searchSchema = z.object({
 // --- Material ---
 export const createMaterialSchema = z.object({
   title: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
   content: z.string().max(100_000).optional(),
   externalUrl: z.string().max(2000).optional(),
 }).refine(
@@ -230,6 +231,7 @@ export const createMaterialSchema = z.object({
 
 export const updateMaterialSchema = z.object({
   title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
   content: z.string().max(100_000).optional(),
   externalUrl: z.string().max(2000).optional(),
   notes: z.string().max(100_000).nullable().optional(),

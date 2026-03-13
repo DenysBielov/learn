@@ -1,10 +1,12 @@
 import { getQuiz } from "@/app/actions/quizzes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { QuizStartButton } from "@/components/quiz-start-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Brain, ChevronLeft, ChevronRight, Clock, Trophy } from "lucide-react";
 import { StepCompleteButton } from "@/components/step-complete-button";
+import { getStepUrl } from "@/lib/route-utils";
 
 interface QuizPageProps {
   params: Promise<{ id: string }>;
@@ -17,12 +19,6 @@ export default async function QuizPage({ params }: QuizPageProps) {
 
   const quiz = await getQuiz(quizId);
   if (!quiz) notFound();
-
-  function getStepUrl(step: { stepType: string; materialId: number | null; quizId: number | null }) {
-    if (step.stepType === "material" && step.materialId) return `/materials/${step.materialId}`;
-    if (step.stepType === "quiz" && step.quizId) return `/quizzes/${step.quizId}`;
-    return "#";
-  }
 
   return (
     <div className="container mx-auto px-4 py-4 sm:p-6 max-w-4xl space-y-6">
@@ -67,12 +63,11 @@ export default async function QuizPage({ params }: QuizPageProps) {
       </Card>
 
       {/* Start Quiz */}
-      <Button asChild size="lg" className="w-full" disabled={quiz.questions.length === 0}>
-        <Link href={`/quizzes/${quizId}/play`}>
-          <Brain className="mr-2 h-5 w-5" />
-          {quiz.questions.length === 0 ? "No questions yet" : "Start Quiz"}
-        </Link>
-      </Button>
+      <QuizStartButton
+        quizId={quizId}
+        questionCount={quiz.questions.length}
+        courseId={quiz.step?.courseId}
+      />
 
       {/* Past Scores */}
       {quiz.pastScores.length > 0 && (

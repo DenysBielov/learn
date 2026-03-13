@@ -20,10 +20,11 @@ interface StudyStartModalProps {
   activityType: "flashcard_review" | "quiz_answer" | "reading";
   sourceId: { deckId?: number; quizId?: number; materialId?: number };
   courseId?: number;
+  onStudyStart?: () => void;
 }
 
 export function StudyStartModal({
-  open, onOpenChange, studyUrl, activityType, sourceId, courseId,
+  open, onOpenChange, studyUrl, activityType, sourceId, courseId, onStudyStart,
 }: StudyStartModalProps) {
   const router = useRouter();
   const { session, startSession, refresh } = useActiveSession();
@@ -35,7 +36,11 @@ export function StudyStartModal({
       const activeSession = session ?? await startSession(courseId);
       await startActivity(activeSession.id, activityType, sourceId);
       await refresh();
-      router.push(studyUrl);
+      if (onStudyStart) {
+        onStudyStart();
+      } else {
+        router.push(studyUrl);
+      }
     } finally {
       setIsStarting(false);
       onOpenChange(false);
@@ -43,7 +48,11 @@ export function StudyStartModal({
   }
 
   function handleStudyWithout() {
-    router.push(studyUrl);
+    if (onStudyStart) {
+      onStudyStart();
+    } else {
+      router.push(studyUrl);
+    }
     onOpenChange(false);
   }
 
@@ -70,4 +79,15 @@ export function StudyStartModal({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Start activity in current session and navigate. Use instead of opening the modal when session is active. */
+export async function startActivityAndNavigate(
+  sessionId: number,
+  activityType: "flashcard_review" | "quiz_answer" | "reading",
+  sourceId: { deckId?: number; quizId?: number; materialId?: number },
+  refresh: () => Promise<void>,
+) {
+  await startActivity(sessionId, activityType, sourceId);
+  await refresh();
 }

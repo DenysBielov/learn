@@ -18,6 +18,8 @@ interface CourseTreeProps {
   expandedChildren: Record<string, TreeItem[]>;
   loadingIds: Set<string>;
   onToggleExpand: (courseId: number) => void;
+  /** When true, all items navigate on single click (mobile mode) */
+  mobileMode?: boolean;
   depth?: number;
 }
 
@@ -43,6 +45,7 @@ export function CourseTree({
   expandedChildren,
   loadingIds,
   onToggleExpand,
+  mobileMode = false,
   depth = 0,
 }: CourseTreeProps) {
   if (items.length === 0) {
@@ -61,12 +64,18 @@ export function CourseTree({
         const Icon = getItemIcon(item);
         const indentPx = depth * 16;
 
+        // Subcourses: single click always navigates
         if (item.type === "subcourse") {
-          if (onNavigate) {
+          const isLoading = loadingIds.has(itemId);
+          const children = expandedChildren[itemId];
+          const isExpanded = Boolean(children);
+
+          // Mobile or no expand support: simple navigate button
+          if (mobileMode) {
             return (
               <button
                 key={itemId}
-                onClick={() => onNavigate(item)}
+                onClick={() => onNavigate?.(item)}
                 className="flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors w-full hover:bg-[var(--card-hover)] border border-transparent text-muted-foreground hover:text-foreground"
                 style={{ paddingLeft: `${indentPx + 12}px` }}
               >
@@ -82,21 +91,15 @@ export function CourseTree({
             );
           }
 
-          const isLoading = loadingIds.has(itemId);
-          const children = expandedChildren[itemId];
-          const isExpanded = Boolean(children);
+          // Desktop: chevron expands, clicking the row navigates
           return (
             <div key={itemId}>
               <div
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full",
-                  isSelected
-                    ? "bg-blue-500/[0.06] border border-blue-500/25 text-foreground"
-                    : "hover:bg-[var(--card-hover)] border border-transparent text-muted-foreground hover:text-foreground"
-                )}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full hover:bg-[var(--card-hover)] border border-transparent text-muted-foreground hover:text-foreground cursor-pointer"
                 style={{ paddingLeft: `${indentPx + 12}px` }}
+                onClick={() => onNavigate?.(item)}
               >
-                {/* Expand/collapse chevron on the left */}
+                {/* Expand/collapse chevron */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -117,22 +120,18 @@ export function CourseTree({
                   )}
                 </button>
 
-                {/* Folder icon */}
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-                {/* Text content — clicking selects the item */}
-                <button
-                  onClick={() => onSelect(itemId)}
-                  className="flex-1 min-w-0 text-left"
-                >
+                <div className="flex-1 min-w-0 text-left">
                   <div className="truncate font-medium">{item.name}</div>
                   <div className="text-xs text-muted-foreground/60 mt-0.5">
                     <span>{item.totalDecks} decks{item.dueCards > 0 && ` \u00b7 ${item.dueCards} due`}</span>
                   </div>
-                </button>
+                </div>
+
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
               </div>
 
-              {/* Recursively render children when expanded (desktop only) */}
               {isExpanded && children && children.length > 0 && (
                 <CourseTree
                   items={children}
@@ -149,10 +148,13 @@ export function CourseTree({
           );
         }
 
+        // Steps and decks: single click = select (preview), double click = navigate
+        // Mobile: single click navigates
         return (
           <button
             key={itemId}
-            onClick={() => onNavigate ? onNavigate(item) : onSelect(itemId)}
+            onClick={() => mobileMode ? onNavigate?.(item) : onSelect(itemId)}
+            onDoubleClick={!mobileMode ? () => onNavigate?.(item) : undefined}
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors w-full",
               isSelected
@@ -161,7 +163,6 @@ export function CourseTree({
             )}
             style={{ paddingLeft: `${indentPx + 12}px` }}
           >
-            {/* Icon for all item types */}
             {item.type === "step" ? (
               <div className="shrink-0 relative">
                 <Icon className={cn("h-4 w-4", item.isCompleted ? "text-green-400" : item.stepType === "material" ? "text-blue-400/70" : "text-orange-400/70")} />

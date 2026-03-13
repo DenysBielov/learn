@@ -1,11 +1,12 @@
 import { getMaterial } from "@/app/actions/materials";
-import { RichContent } from "@/components/rich-content";
+import { MaterialContent } from "@/components/material-content";
 import { MaterialPanel } from "@/components/material-panel";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { StepCompleteButton } from "@/components/step-complete-button";
+import { getStepUrl } from "@/lib/route-utils";
 
 interface MaterialPageProps {
   params: Promise<{ id: string }>;
@@ -18,17 +19,6 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
 
   const material = await getMaterial(materialId);
   if (!material) notFound();
-
-  function getStepUrl(step: {
-    stepType: string;
-    materialId: number | null;
-    quizId: number | null;
-  }) {
-    if (step.stepType === "material" && step.materialId)
-      return `/materials/${step.materialId}`;
-    if (step.stepType === "quiz" && step.quizId) return `/quizzes/${step.quizId}`;
-    return "#";
-  }
 
   const materialContent = (
     <div className="space-y-6">
@@ -82,13 +72,13 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
       )}
 
       {/* Content */}
-      {material.content ? (
-        <div className="prose prose-neutral dark:prose-invert max-w-none">
-          <RichContent content={material.content} />
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">No content available</p>
-      )}
+      <MaterialContent
+        materialId={materialId}
+        description={material.description ?? null}
+        content={material.content ?? null}
+        externalUrl={material.externalUrl ?? null}
+        courseId={material.step?.courseId}
+      />
     </div>
   );
 

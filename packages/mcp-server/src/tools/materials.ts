@@ -26,10 +26,11 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
     {
       courseId: z.number().int().positive(),
       title: z.string().min(1).max(200),
+      description: z.string().max(2000).optional().describe("Brief description shown in view mode before studying"),
       content: z.string().max(100_000).optional().describe("Markdown content. Supports LaTeX math ($inline$ and $$block$$)."),
       externalUrl: z.string().max(2000).optional().describe("External URL (must be http or https)"),
     },
-    async ({ courseId, title, content, externalUrl }) => {
+    async ({ courseId, title, description, content, externalUrl }) => {
       if (!content && !externalUrl) {
         return { content: [{ type: "text" as const, text: "Material must have content or an external URL" }], isError: true };
       }
@@ -51,6 +52,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
       const [material] = writeTransaction(db, () => {
         const [created] = db.insert(materials).values({
           title,
+          description: description ?? null,
           content: sanitizedContent,
           externalUrl: externalUrl ?? null,
           userId,
@@ -78,10 +80,11 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
     {
       materialId: z.number().int().positive(),
       title: z.string().min(1).max(200).optional(),
+      description: z.string().max(2000).optional().describe("Brief description shown in view mode"),
       content: z.string().max(100_000).optional(),
       externalUrl: z.string().max(2000).optional(),
     },
-    async ({ materialId, title, content, externalUrl }) => {
+    async ({ materialId, title, description, content, externalUrl }) => {
       const existing = db.select({ id: materials.id }).from(materials)
         .where(and(eq(materials.id, materialId), eq(materials.userId, userId))).get();
       if (!existing) {
@@ -96,6 +99,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
       if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
       if (content !== undefined) updates.content = sanitizeMarkdownImageUrls(content);
       if (externalUrl !== undefined) updates.externalUrl = externalUrl;
 

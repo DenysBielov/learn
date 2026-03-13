@@ -7,6 +7,28 @@ import {
   flashcards,
   quizQuestions,
   questionOptions,
+  courseSteps,
+  stepProgress,
+  flashcardTags,
+  questionTags,
+  studySessions,
+  sessionActivities,
+  flashcardResults,
+  quizResults,
+  cardFlags,
+  learningMaterials,
+  chatConversations,
+  chatMessages,
+  pushSubscriptions,
+  learningDependencies,
+  materialTags,
+  materialDecks,
+  materialQuizzes,
+  materialResources,
+  materials,
+  quizzes,
+  tags,
+  events,
 } from "./schema.js";
 import bcrypt from "bcrypt";
 import { createHash, randomBytes } from "node:crypto";
@@ -54,17 +76,37 @@ async function main() {
       console.log(`MCP token: ${token}`);
     }
 
-    // Skip data seeding if user already has courses
-    const existingCourses = db
-      .select({ id: courses.id })
-      .from(courses)
-      .where(eq(courses.userId, userId))
-      .all();
-
-    if (existingCourses.length > 0) {
-      console.log(`User already has ${existingCourses.length} course(s), skipping data seed.`);
-      return;
-    }
+    // Delete all existing data (order matters for foreign keys)
+    console.log("Clearing existing data...");
+    db.delete(flashcardResults).run();
+    db.delete(quizResults).run();
+    db.delete(sessionActivities).run();
+    db.delete(studySessions).run();
+    db.delete(cardFlags).run();
+    db.delete(chatMessages).run();
+    db.delete(chatConversations).run();
+    db.delete(pushSubscriptions).run();
+    db.delete(events).run();
+    db.delete(learningDependencies).run();
+    db.delete(learningMaterials).run();
+    db.delete(materialResources).run();
+    db.delete(materialQuizzes).run();
+    db.delete(materialDecks).run();
+    db.delete(materialTags).run();
+    db.delete(flashcardTags).run();
+    db.delete(questionTags).run();
+    db.delete(questionOptions).run();
+    db.delete(quizQuestions).run();
+    db.delete(flashcards).run();
+    db.delete(stepProgress).run();
+    db.delete(courseSteps).run();
+    db.delete(courseDecks).run();
+    db.delete(decks).run();
+    db.delete(materials).run();
+    db.delete(quizzes).run();
+    db.delete(tags).run();
+    db.delete(courses).run();
+    console.log("Done clearing.");
 
     // 2. Create parent course: AI/ML
     const [aiMlCourse] = db
@@ -291,10 +333,393 @@ async function main() {
       explanation: "Each distribution models a specific type of random phenomenon based on its underlying assumptions.",
     }).run();
 
+    // 6. Create materials
+    const [vectorsMaterial] = db
+      .insert(materials)
+      .values({
+        title: "Introduction to Vectors",
+        description: "Comprehensive guide to vectors in linear algebra",
+        content: `# Vectors in Linear Algebra
+
+## What is a Vector?
+
+A vector is a mathematical object that has both **magnitude** (length) and **direction**. In linear algebra, vectors are typically represented as ordered lists of numbers called components.
+
+### Notation
+
+- A vector in ℝ² can be written as **v** = (v₁, v₂)
+- A vector in ℝ³ as **v** = (v₁, v₂, v₃)
+- More generally, a vector in ℝⁿ as **v** = (v₁, v₂, ..., vₙ)
+
+## Vector Operations
+
+### Addition
+Two vectors are added component-wise:
+**u** + **v** = (u₁ + v₁, u₂ + v₂, ..., uₙ + vₙ)
+
+### Scalar Multiplication
+A vector multiplied by a scalar c:
+c**v** = (cv₁, cv₂, ..., cvₙ)
+
+### Dot Product
+The dot product of two vectors:
+**u** · **v** = u₁v₁ + u₂v₂ + ... + uₙvₙ
+
+The geometric interpretation: **u** · **v** = ||**u**|| ||**v**|| cos(θ)
+
+### Cross Product (ℝ³ only)
+The cross product produces a vector perpendicular to both inputs:
+**u** × **v** = (u₂v₃ - u₃v₂, u₃v₁ - u₁v₃, u₁v₂ - u₂v₁)
+
+## Vector Spaces
+
+A vector space V over a field F is a set equipped with addition and scalar multiplication satisfying eight axioms:
+1. Closure under addition
+2. Commutativity of addition
+3. Associativity of addition
+4. Existence of additive identity (zero vector)
+5. Existence of additive inverse
+6. Closure under scalar multiplication
+7. Distributivity over vector addition
+8. Distributivity over field addition
+
+## Linear Independence
+
+Vectors **v₁**, **v₂**, ..., **vₖ** are **linearly independent** if the only solution to:
+c₁**v₁** + c₂**v₂** + ... + cₖ**vₖ** = **0**
+is c₁ = c₂ = ... = cₖ = 0.
+
+## Basis and Dimension
+
+A **basis** of a vector space V is a set of linearly independent vectors that span V. The number of vectors in a basis is the **dimension** of V.`,
+        userId,
+      })
+      .returning({ id: materials.id }).all();
+
+    const [matricesMaterial] = db
+      .insert(materials)
+      .values({
+        title: "Matrix Operations & Properties",
+        description: "Deep dive into matrix algebra and key properties",
+        content: `# Matrix Operations & Properties
+
+## What is a Matrix?
+
+A matrix is a rectangular array of numbers arranged in rows and columns. An m×n matrix has m rows and n columns.
+
+## Basic Operations
+
+### Matrix Addition
+Matrices of the same dimensions are added element-wise:
+(A + B)ᵢⱼ = Aᵢⱼ + Bᵢⱼ
+
+### Scalar Multiplication
+Every element is multiplied by the scalar:
+(cA)ᵢⱼ = c · Aᵢⱼ
+
+### Matrix Multiplication
+For matrices A (m×n) and B (n×p), the product C = AB is an m×p matrix:
+Cᵢⱼ = Σₖ AᵢₖBₖⱼ
+
+**Note:** Matrix multiplication is NOT commutative: AB ≠ BA in general.
+
+## Special Matrices
+
+| Matrix Type | Property |
+|------------|----------|
+| Identity (I) | Aᵢⱼ = 1 if i=j, 0 otherwise |
+| Diagonal | Non-zero entries only on main diagonal |
+| Symmetric | A = Aᵀ |
+| Orthogonal | AᵀA = AAᵀ = I |
+| Upper Triangular | All entries below diagonal are zero |
+| Lower Triangular | All entries above diagonal are zero |
+
+## Transpose
+
+The transpose Aᵀ is obtained by swapping rows and columns:
+(Aᵀ)ᵢⱼ = Aⱼᵢ
+
+Properties:
+- (Aᵀ)ᵀ = A
+- (A + B)ᵀ = Aᵀ + Bᵀ
+- (AB)ᵀ = BᵀAᵀ
+
+## Determinant
+
+The determinant det(A) is a scalar value computed from a square matrix.
+
+For a 2×2 matrix: det([a,b; c,d]) = ad - bc
+
+Key properties:
+- det(A) ≠ 0 ⟹ A is invertible
+- det(AB) = det(A) · det(B)
+- det(Aᵀ) = det(A)
+
+## Eigenvalues & Eigenvectors
+
+An eigenvector **v** of matrix A satisfies: A**v** = λ**v**
+
+where λ is the corresponding eigenvalue. Found by solving det(A - λI) = 0.`,
+        userId,
+      })
+      .returning({ id: materials.id }).all();
+
+    const [bayesMaterial] = db
+      .insert(materials)
+      .values({
+        title: "Bayes' Theorem Explained",
+        description: "Understanding Bayesian reasoning with examples",
+        content: `# Bayes' Theorem
+
+## The Formula
+
+P(A|B) = P(B|A) · P(A) / P(B)
+
+Where:
+- P(A|B) = **posterior** — probability of A given B
+- P(B|A) = **likelihood** — probability of B given A
+- P(A) = **prior** — initial probability of A
+- P(B) = **evidence** — total probability of B
+
+## Intuitive Example: Medical Testing
+
+Suppose a disease affects 1% of the population. A test has:
+- 99% sensitivity (true positive rate): P(+|disease) = 0.99
+- 95% specificity (true negative rate): P(-|no disease) = 0.95
+
+If you test positive, what's the probability you have the disease?
+
+P(disease|+) = P(+|disease) · P(disease) / P(+)
+
+P(+) = P(+|disease)·P(disease) + P(+|no disease)·P(no disease)
+P(+) = 0.99 × 0.01 + 0.05 × 0.99 = 0.0099 + 0.0495 = 0.0594
+
+P(disease|+) = 0.0099 / 0.0594 ≈ **16.7%**
+
+Despite a 99% accurate test, a positive result only means ~17% chance of disease! This is because the disease is rare (low prior).
+
+## Applications in ML
+
+- **Naive Bayes classifier**: Assumes feature independence to classify data
+- **Bayesian inference**: Updating model parameters as new data arrives
+- **Spam filtering**: P(spam|words) using word frequencies`,
+        userId,
+      })
+      .returning({ id: materials.id }).all();
+
+    const [distributionsMaterial] = db
+      .insert(materials)
+      .values({
+        title: "Probability Distributions Overview",
+        description: "Key probability distributions and when to use them",
+        content: `# Probability Distributions
+
+## Discrete Distributions
+
+### Bernoulli Distribution
+- Single trial, two outcomes (success/failure)
+- P(X=1) = p, P(X=0) = 1-p
+- Mean: p, Variance: p(1-p)
+
+### Binomial Distribution
+- n independent Bernoulli trials
+- P(X=k) = C(n,k) · pᵏ · (1-p)ⁿ⁻ᵏ
+- Mean: np, Variance: np(1-p)
+
+### Poisson Distribution
+- Events in a fixed interval
+- P(X=k) = (λᵏ · e⁻ᵝ) / k!
+- Mean: λ, Variance: λ
+
+### Geometric Distribution
+- Trials until first success
+- P(X=k) = (1-p)ᵏ⁻¹ · p
+- Mean: 1/p
+
+## Continuous Distributions
+
+### Normal (Gaussian) Distribution
+- Bell-shaped, symmetric around mean
+- Defined by μ (mean) and σ (standard deviation)
+- 68-95-99.7 rule
+- Central Limit Theorem: sum of many independent variables → normal
+
+### Exponential Distribution
+- Time between events in a Poisson process
+- f(x) = λe⁻ᵝˣ for x ≥ 0
+- Mean: 1/λ, Variance: 1/λ²
+- Memoryless property
+
+### Uniform Distribution
+- Equal probability over an interval [a, b]
+- f(x) = 1/(b-a)
+- Mean: (a+b)/2
+
+## Choosing the Right Distribution
+
+| Scenario | Distribution |
+|----------|-------------|
+| Coin flip | Bernoulli |
+| Multiple coin flips | Binomial |
+| Events per hour | Poisson |
+| Time until next event | Exponential |
+| Measurements with error | Normal |
+| Random number in range | Uniform |`,
+        userId,
+      })
+      .returning({ id: materials.id }).all();
+
+    // Link materials to decks
+    db.insert(materialDecks).values([
+      { materialId: vectorsMaterial.id, deckId: vectorsDeck.id },
+      { materialId: matricesMaterial.id, deckId: matricesDeck.id },
+      { materialId: bayesMaterial.id, deckId: probDeck.id },
+      { materialId: distributionsMaterial.id, deckId: distDeck.id },
+    ]).run();
+
+    // 7. Create standalone quizzes
+    const [linAlgQuiz] = db
+      .insert(quizzes)
+      .values({
+        title: "Linear Algebra Fundamentals",
+        description: "Test your understanding of vectors and matrices",
+        userId,
+      })
+      .returning({ id: quizzes.id }).all();
+
+    const [probQuiz] = db
+      .insert(quizzes)
+      .values({
+        title: "Probability & Statistics Assessment",
+        description: "Comprehensive quiz on probability concepts and distributions",
+        userId,
+      })
+      .returning({ id: quizzes.id }).all();
+
+    // Link quiz questions to standalone quizzes
+    // Create new questions for the standalone quizzes
+    const [sq1] = db
+      .insert(quizQuestions)
+      .values({
+        deckId: vectorsDeck.id,
+        quizId: linAlgQuiz.id,
+        type: "multiple_choice",
+        question: "What is the dimension of the vector space ℝ³?",
+        explanation: "ℝ³ has dimension 3 because its standard basis {e₁, e₂, e₃} contains 3 vectors.",
+      })
+      .returning({ id: quizQuestions.id }).all();
+
+    db.insert(questionOptions).values([
+      { questionId: sq1.id, optionText: "3", isCorrect: true },
+      { questionId: sq1.id, optionText: "2", isCorrect: false },
+      { questionId: sq1.id, optionText: "1", isCorrect: false },
+      { questionId: sq1.id, optionText: "Infinite", isCorrect: false },
+    ]).run();
+
+    const [sq2] = db
+      .insert(quizQuestions)
+      .values({
+        deckId: matricesDeck.id,
+        quizId: linAlgQuiz.id,
+        type: "true_false",
+        question: "Matrix multiplication is commutative (AB = BA for all matrices).",
+        explanation: "Matrix multiplication is NOT commutative. AB ≠ BA in general.",
+      })
+      .returning({ id: quizQuestions.id }).all();
+
+    db.insert(questionOptions).values([
+      { questionId: sq2.id, optionText: "True", isCorrect: false },
+      { questionId: sq2.id, optionText: "False", isCorrect: true },
+    ]).run();
+
+    db.insert(quizQuestions).values({
+      deckId: vectorsDeck.id,
+      quizId: linAlgQuiz.id,
+      type: "free_text",
+      question: "What is the name for a set of linearly independent vectors that span a vector space?",
+      correctAnswer: JSON.stringify(["basis", "a basis"]),
+      explanation: "A basis is a set of linearly independent vectors that span the entire vector space.",
+    }).run();
+
+    const [sq4] = db
+      .insert(quizQuestions)
+      .values({
+        deckId: probDeck.id,
+        quizId: probQuiz.id,
+        type: "multiple_choice",
+        question: "What is P(A ∪ B) for mutually exclusive events?",
+        explanation: "For mutually exclusive events P(A ∩ B) = 0, so P(A ∪ B) = P(A) + P(B).",
+      })
+      .returning({ id: quizQuestions.id }).all();
+
+    db.insert(questionOptions).values([
+      { questionId: sq4.id, optionText: "P(A) + P(B)", isCorrect: true },
+      { questionId: sq4.id, optionText: "P(A) × P(B)", isCorrect: false },
+      { questionId: sq4.id, optionText: "P(A) + P(B) - P(A)P(B)", isCorrect: false },
+      { questionId: sq4.id, optionText: "1 - P(A)P(B)", isCorrect: false },
+    ]).run();
+
+    const [sq5] = db
+      .insert(quizQuestions)
+      .values({
+        deckId: distDeck.id,
+        quizId: probQuiz.id,
+        type: "true_false",
+        question: "The Poisson distribution can only model events that occur at most once per interval.",
+        explanation: "The Poisson distribution can model any number of events (0, 1, 2, ...) in a fixed interval.",
+      })
+      .returning({ id: quizQuestions.id }).all();
+
+    db.insert(questionOptions).values([
+      { questionId: sq5.id, optionText: "True", isCorrect: false },
+      { questionId: sq5.id, optionText: "False", isCorrect: true },
+    ]).run();
+
+    db.insert(quizQuestions).values({
+      deckId: distDeck.id,
+      quizId: probQuiz.id,
+      type: "matching",
+      question: "Match each distribution to its key parameter(s):",
+      correctAnswer: JSON.stringify([
+        { left: "Normal", right: "μ (mean) and σ (std dev)" },
+        { left: "Poisson", right: "λ (rate)" },
+        { left: "Bernoulli", right: "p (success probability)" },
+        { left: "Uniform", right: "a and b (interval bounds)" },
+      ]),
+      explanation: "Each distribution is defined by its characteristic parameters.",
+    }).run();
+
+    // Link quizzes to materials
+    db.insert(materialQuizzes).values([
+      { materialId: vectorsMaterial.id, quizId: linAlgQuiz.id },
+      { materialId: bayesMaterial.id, quizId: probQuiz.id },
+    ]).run();
+
+    // 8. Add materials and quizzes as course steps
+    db.insert(courseSteps).values([
+      { courseId: linearAlgebra.id, position: 0, stepType: "material", materialId: vectorsMaterial.id },
+      { courseId: linearAlgebra.id, position: 1, stepType: "material", materialId: matricesMaterial.id },
+      { courseId: linearAlgebra.id, position: 2, stepType: "quiz", quizId: linAlgQuiz.id },
+    ]).run();
+
+    db.insert(courseSteps).values([
+      { courseId: probStats.id, position: 0, stepType: "material", materialId: bayesMaterial.id },
+      { courseId: probStats.id, position: 1, stepType: "material", materialId: distributionsMaterial.id },
+      { courseId: probStats.id, position: 2, stepType: "quiz", quizId: probQuiz.id },
+    ]).run();
+
     console.log("\nSeeded data:");
     console.log("  Course: AI/ML");
-    console.log("    Subcourse: Linear Algebra (2 decks, 6 flashcards, 5 quiz questions)");
-    console.log("    Subcourse: Probability & Statistics (2 decks, 5 flashcards, 5 quiz questions)");
+    console.log("    Subcourse: Linear Algebra");
+    console.log("      - 2 decks, 6 flashcards, 5 deck quiz questions");
+    console.log("      - 2 materials (Intro to Vectors, Matrix Operations)");
+    console.log("      - 1 standalone quiz (Linear Algebra Fundamentals, 3 questions)");
+    console.log("      - 3 course steps (2 materials + 1 quiz)");
+    console.log("    Subcourse: Probability & Statistics");
+    console.log("      - 2 decks, 5 flashcards, 5 deck quiz questions");
+    console.log("      - 2 materials (Bayes' Theorem, Distributions Overview)");
+    console.log("      - 1 standalone quiz (Probability Assessment, 3 questions)");
+    console.log("      - 3 course steps (2 materials + 1 quiz)");
     console.log("\nDone!");
   } finally {
     closeDb();

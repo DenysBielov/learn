@@ -135,8 +135,9 @@ export async function getQuiz(id: number) {
       COALESCE(SUM(qr.correct), 0) AS correct_count,
       COUNT(qr.id) AS total_count
     FROM study_session s
-    LEFT JOIN quiz_result qr ON qr.session_id = s.id
-    WHERE s.quiz_id = ${id} AND s.user_id = ${userId} AND s.completed_at IS NOT NULL
+    INNER JOIN session_activity sa ON sa.session_id = s.id AND sa.quiz_id = ${id}
+    LEFT JOIN quiz_result qr ON qr.activity_id = sa.id
+    WHERE s.user_id = ${userId} AND s.completed_at IS NOT NULL
     GROUP BY s.id
     ORDER BY s.started_at DESC
     LIMIT 5

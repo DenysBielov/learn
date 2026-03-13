@@ -1,17 +1,16 @@
 import { getCourse, getCourseBreadcrumbs, getCourseJourney } from "@/app/actions/courses";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CreateCourseDialog } from "@/components/create-course-dialog";
-import { AddDeckToCourseDialog } from "@/components/add-deck-to-course-dialog";
 import { EditCourseDialog } from "@/components/edit-course-dialog";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
-import { AddStepDialog } from "@/components/add-step-dialog";
+import { CourseAddMenu } from "@/components/course-add-menu";
 import { CourseSplitLayout } from "@/components/course-split-layout";
 import type { TreeItem } from "@/components/course-tree";
+import { CourseStudyButton } from "@/components/course-study-button";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SessionHistory } from "@/components/session-history";
-import { BookOpen, Brain, GitBranch } from "lucide-react";
+import { GitBranch } from "lucide-react";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -81,27 +80,14 @@ export default async function CoursePage({ params }: CoursePageProps) {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Button asChild>
-          <Link href={`/courses/${courseId}/study`}>
-            <BookOpen className="mr-2 h-4 w-4" />
-            Study Flashcards
-          </Link>
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href={`/courses/${courseId}/quiz`}>
-            <Brain className="mr-2 h-4 w-4" />
-            Take Quiz
-          </Link>
-        </Button>
+        <CourseStudyButton courseId={courseId} />
         <Button asChild variant="outline" size="sm">
           <Link href={`/courses/${courseId}/graph`}>
             <GitBranch className="mr-2 h-4 w-4" />
-            View Graph
+            Graph
           </Link>
         </Button>
-        <CreateCourseDialog parentId={courseId} triggerLabel="Add Sub-Course" />
-        <AddDeckToCourseDialog courseId={courseId} />
-        <AddStepDialog courseId={courseId} />
+        <CourseAddMenu courseId={courseId} />
       </div>
 
       {treeItems.length > 0 ? (
