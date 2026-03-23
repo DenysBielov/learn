@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { getDb, closeDb } from "@flashcards/database";
-import { users } from "@flashcards/database/schema";
-import { eq } from "drizzle-orm";
+import { apiTokens } from "@flashcards/database/schema";
+import { eq, and } from "drizzle-orm";
 import { registerDeckTools } from "./tools/decks.js";
 import { registerFlashcardTools } from "./tools/flashcards.js";
 import { registerQuizTools } from "./tools/quiz.js";
@@ -26,9 +26,9 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 function resolveUserFromToken(bearerToken: string): number | null {
   const hash = createHash("sha256").update(bearerToken).digest("hex");
   const db = getDb();
-  const user = db.select({ id: users.id }).from(users)
-    .where(eq(users.mcpTokenHash, hash)).get();
-  return user?.id ?? null;
+  const row = db.select({ userId: apiTokens.userId }).from(apiTokens)
+    .where(and(eq(apiTokens.tokenHash, hash), eq(apiTokens.type, "mcp"))).get();
+  return row?.userId ?? null;
 }
 
 function createMcpServer(userId: number) {
