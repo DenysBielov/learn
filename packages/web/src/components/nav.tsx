@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, RefreshCw, BarChart3, Clock, LogOut } from "lucide-react";
+import { Home, RefreshCw, BarChart3, Clock, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationToggle } from "@/components/notification-toggle";
@@ -72,6 +72,19 @@ export function Nav() {
             })}
           </nav>
           <div className="px-2 lg:px-3 pb-4 space-y-2">
+            <Link
+              href="/settings"
+              title="Settings"
+              className={cn(
+                "group flex items-center justify-center lg:justify-start px-3 py-2 text-sm font-medium rounded-md transition-colors w-full",
+                pathname === "/settings"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Settings className="h-5 w-5 flex-shrink-0 lg:mr-3" />
+              <span className="hidden lg:inline">Settings</span>
+            </Link>
             <button
               onClick={handleLogout}
               title="Sign out"
