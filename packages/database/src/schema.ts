@@ -2,6 +2,7 @@
 import { sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, unique, check, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { randomBytes } from "crypto";
 
 // --- User ---
 export const users = sqliteTable("users", {
@@ -40,11 +41,20 @@ export const courses = sqliteTable("course", {
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
   position: integer("position").notNull().default(0),
   estimatedHours: integer("estimated_hours"),
+  publicId: text("public_id").notNull().unique().default(sql`(lower(hex(randomblob(16))))`).$defaultFn(() => randomBytes(16).toString("hex")),
+  visibility: text("visibility", { enum: ["private", "public", "forkable"] }).notNull().default("private"),
+  rootCourseId: integer("root_course_id").references(() => courses.id, { onDelete: "set null" }),
+  forkedFromId: integer("forked_from_id").references(() => courses.id, { onDelete: "set null" }),
+  forkedFromUserId: integer("forked_from_user_id").references(() => users.id, { onDelete: "set null" }),
+  forkedFromName: text("forked_from_name"),
+  forkedFromAuthorName: text("forked_from_author_name"),
+  forkedAt: integer("forked_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_course_parent_position").on(table.parentId, table.position),
   index("idx_course_user").on(table.userId),
+  index("idx_courses_visibility").on(table.visibility),
 ]);
 
 // --- CourseDeck (join) ---
