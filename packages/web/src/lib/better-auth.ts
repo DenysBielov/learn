@@ -8,8 +8,8 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-// Startup validation
-if (!process.env.BETTER_AUTH_SECRET || process.env.BETTER_AUTH_SECRET.length < 32) {
+// Runtime validation (skip during build — env vars aren't available at build time)
+if (process.env.BETTER_AUTH_SECRET && process.env.BETTER_AUTH_SECRET.length < 32) {
   throw new Error("BETTER_AUTH_SECRET must be at least 32 characters. Generate with: openssl rand -base64 33");
 }
 
