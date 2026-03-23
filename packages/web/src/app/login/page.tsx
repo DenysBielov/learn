@@ -4,7 +4,7 @@ import { LoginForm } from "@/components/login-form";
 
 export default async function LoginPage() {
   const user = await getAuthUser();
-  if (user) redirect("/");
+  if (user) redirect("/dashboard");
 
   return (
     <div className="flex min-h-screen items-center justify-center">
