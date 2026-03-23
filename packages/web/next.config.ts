@@ -8,7 +8,7 @@ const rootPkg = JSON.parse(
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ['better-sqlite3', 'sharp', 'web-push'],
+  serverExternalPackages: ['better-sqlite3', 'better-auth', 'sharp', 'web-push'],
   transpilePackages: ['@flashcards/database', '@flashcards/shared'],
   env: {
     NEXT_PUBLIC_APP_VERSION: rootPkg.version,

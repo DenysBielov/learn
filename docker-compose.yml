@@ -5,6 +5,15 @@ services:
       - "3000:3000"
     volumes:
       - flashcards-data:/app/data
+    environment:
+      - BETTER_AUTH_SECRET=          # Required: random secret for session signing
+      - BETTER_AUTH_URL=             # Required: public URL (e.g. https://example.com)
+      - AUTH_GOOGLE_ID=              # OAuth: Google client ID
+      - AUTH_GOOGLE_SECRET=          # OAuth: Google client secret
+      - AUTH_GITHUB_ID=              # OAuth: GitHub client ID
+      - AUTH_GITHUB_SECRET=          # OAuth: GitHub client secret
+      - RESEND_API_KEY=              # Email: Resend API key for transactional emails
+      - ENCRYPTION_KEYS=            # Required: comma-separated encryption keys for user secrets
     restart: unless-stopped
 
   watchtower:
