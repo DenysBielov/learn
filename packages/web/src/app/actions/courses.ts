@@ -674,9 +674,21 @@ export async function updateVisibility(courseId: number, visibility: "private" |
   revalidatePath(`/courses/${courseId}`);
 }
 
-export async function getPublicCourses(page: number = 1, limit: number = 20) {
+export async function getPublicCourses(page: number = 1, limit: number = 20, search?: string) {
   const db = getDb();
   const offset = (page - 1) * limit;
+
+  const conditions = [
+    isNull(courses.parentId),
+    sql`${courses.visibility} IN ('public', 'forkable')`,
+  ];
+
+  if (search && search.trim()) {
+    const pattern = `%${search.trim()}%`;
+    conditions.push(sql`${courses.name} LIKE ${pattern}`);
+  }
+
+  const whereClause = and(...conditions);
 
   const rows = db.select({
     id: courses.id,
@@ -693,19 +705,17 @@ export async function getPublicCourses(page: number = 1, limit: number = 20) {
   })
     .from(courses)
     .innerJoin(users, eq(courses.userId, users.id))
-    .where(and(
-      isNull(courses.parentId),
-      sql`${courses.visibility} IN ('public', 'forkable')`,
-    ))
+    .where(whereClause)
     .orderBy(sql`${courses.createdAt} DESC`)
     .limit(limit)
     .offset(offset)
     .all();
 
-  const countResult = db.get<{ total: number }>(
-    sql`SELECT COUNT(*) as total FROM course WHERE parent_id IS NULL AND visibility IN ('public', 'forkable')`
-  );
-  const total = countResult?.total ?? 0;
+  const countRows = db.select({ total: sql<number>`COUNT(*)` })
+    .from(courses)
+    .where(whereClause)
+    .all();
+  const total = countRows[0]?.total ?? 0;
 
   return {
     courses: rows.map(r => ({
