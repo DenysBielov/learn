@@ -23,12 +23,9 @@ import {
   detectImageType,
 } from "@/lib/chat-images";
 import { sanitizeContent } from "@/lib/sanitize";
+import { getUserApiKey } from "@/lib/api-keys";
 import fs from "fs";
 import path from "path";
-
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
 
 const EXPLAIN_SYSTEM_PROMPT = `You are a concise tutor helping a student learn.
 
@@ -100,6 +97,16 @@ const materialChatSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const { userId } = await requireAuth();
+
+  const apiKey = getUserApiKey(userId, "gemini");
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: "Please add your Gemini API key in Settings" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const google = createGoogleGenerativeAI({ apiKey });
 
   // Rate limit check
   const rateCheck = checkChatRateLimit(userId);

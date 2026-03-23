@@ -11,14 +11,16 @@ import { requireAuth } from "@/lib/auth";
 import { checkChatRateLimit, recordChatRequest } from "@/lib/chat-rate-limit";
 import { sanitizeContent } from "@/lib/sanitize";
 import { deleteImage } from "@/lib/chat-images";
-
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { getUserApiKey } from "@/lib/api-keys";
 
 export async function generateSessionSummary(sessionId: number): Promise<string | null> {
   const parsed = z.number().int().positive().parse(sessionId);
   const { userId } = await requireAuth();
+
+  const apiKey = getUserApiKey(userId, "gemini");
+  if (!apiKey) return null;
+
+  const google = createGoogleGenerativeAI({ apiKey });
   const db = getDb();
 
   // IDOR fix: filter by userId

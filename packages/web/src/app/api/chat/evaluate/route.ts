@@ -7,13 +7,20 @@ import { quizQuestions, decks, quizzes } from "@flashcards/database/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { checkChatRateLimit, recordChatRequest } from "@/lib/chat-rate-limit";
-
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { getUserApiKey } from "@/lib/api-keys";
 
 export async function POST(request: NextRequest) {
   const { userId } = await requireAuth();
+
+  const apiKey = getUserApiKey(userId, "gemini");
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Please add your Gemini API key in Settings" },
+      { status: 403 }
+    );
+  }
+
+  const google = createGoogleGenerativeAI({ apiKey });
 
   const rateCheck = checkChatRateLimit(userId);
   if (!rateCheck.allowed) {
