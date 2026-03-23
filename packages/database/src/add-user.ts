@@ -103,7 +103,6 @@ async function main() {
       email,
       name,
       emailVerified: true,
-      passwordHash,
     }).run();
 
     const userId = Number(result.lastInsertRowid);

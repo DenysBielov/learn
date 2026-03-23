@@ -30,19 +30,9 @@ import {
   tags,
   events,
 } from "./schema.js";
-import bcrypt from "bcrypt";
-import { createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 
-const BCRYPT_ROUNDS = 10;
 const TEST_EMAIL = "test@test.com";
-const TEST_PASSWORD = "test";
-
-function generateMcpToken(): { token: string; hash: string } {
-  const token = randomBytes(32).toString("hex");
-  const hash = createHash("sha256").update(token).digest("hex");
-  return { token, hash };
-}
 
 async function main() {
   const db = getDb();
@@ -58,22 +48,15 @@ async function main() {
 
     if (existing) {
       userId = existing.id;
-      // Reset password to known value
-      const passwordHash = await bcrypt.hash(TEST_PASSWORD, BCRYPT_ROUNDS);
-      db.update(users).set({ passwordHash }).where(eq(users.id, userId)).run();
-      console.log(`User "${TEST_EMAIL}" already exists (id=${userId}), password reset to "${TEST_PASSWORD}"`);
+      console.log(`User "${TEST_EMAIL}" already exists (id=${userId})`);
     } else {
-      const passwordHash = await bcrypt.hash(TEST_PASSWORD, BCRYPT_ROUNDS);
-      const { token, hash: mcpTokenHash } = generateMcpToken();
-
       const [user] = db
         .insert(users)
-        .values({ email: TEST_EMAIL, passwordHash, mcpTokenHash })
+        .values({ email: TEST_EMAIL })
         .returning({ id: users.id }).all();
 
       userId = user.id;
       console.log(`Created user "${TEST_EMAIL}" (id=${userId})`);
-      console.log(`MCP token: ${token}`);
     }
 
     // Delete all existing data (order matters for foreign keys)

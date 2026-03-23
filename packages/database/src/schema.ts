@@ -11,8 +11,6 @@ export const users = sqliteTable("users", {
   name: text("name"),
   image: text("image"),
   emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
-  passwordHash: text("password_hash").notNull(),
-  mcpTokenHash: text("mcp_token_hash"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
