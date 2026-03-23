@@ -51,6 +51,7 @@ export default async function DashboardPage() {
                   <CourseCard
                     key={course.id}
                     id={course.id}
+                    publicId={course.publicId}
                     name={course.name}
                     description={course.description}
                     color={course.color}
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
                   <CourseCard
                     key={course.id}
                     id={course.id}
+                    publicId={course.publicId}
                     name={course.name}
                     description={course.description}
                     color={course.color}

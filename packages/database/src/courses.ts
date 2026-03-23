@@ -110,18 +110,18 @@ export function getCourseBreadcrumbs(
   db: AppDatabase,
   courseId: number,
   userId: number
-): { id: number; name: string }[] {
-  const result = db.all<{ id: number; name: string; depth: number }>(sql`
+): { id: number; name: string; publicId: string }[] {
+  const result = db.all<{ id: number; name: string; public_id: string; depth: number }>(sql`
     WITH RECURSIVE ancestors AS (
-      SELECT id, name, parent_id, 1 AS depth FROM course WHERE id = ${courseId} AND user_id = ${userId}
+      SELECT id, name, public_id, parent_id, 1 AS depth FROM course WHERE id = ${courseId} AND user_id = ${userId}
       UNION ALL
-      SELECT c.id, c.name, c.parent_id, a.depth + 1 FROM course c
+      SELECT c.id, c.name, c.public_id, c.parent_id, a.depth + 1 FROM course c
       JOIN ancestors a ON c.id = a.parent_id
       WHERE a.depth < 11
     )
-    SELECT id, name, depth FROM ancestors ORDER BY depth DESC
+    SELECT id, name, public_id, depth FROM ancestors ORDER BY depth DESC
   `);
-  return result.map(r => ({ id: r.id, name: r.name }));
+  return result.map(r => ({ id: r.id, name: r.name, publicId: r.public_id }));
 }
 
 /**

@@ -17,10 +17,12 @@ import { Play, RotateCcw, BookOpen } from "lucide-react";
 
 interface CourseStudyButtonProps {
   courseId: number;
+  publicId?: string;
   variant?: "default" | "sm";
 }
 
-export function CourseStudyButton({ courseId, variant = "default" }: CourseStudyButtonProps) {
+export function CourseStudyButton({ courseId, publicId, variant = "default" }: CourseStudyButtonProps) {
+  const courseUrl = publicId ? `/courses/${publicId}` : `/courses/${courseId}`;
   const router = useRouter();
   const { session, startSession, refresh } = useActiveSession();
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +56,7 @@ export function CourseStudyButton({ courseId, variant = "default" }: CourseStudy
       if (!result.hasSteps) {
         // No steps at all — go to flashcard study if there are decks
         if (result.hasDecks) {
-          router.push(`/courses/${courseId}/study`);
+          router.push(`${courseUrl}/study`);
         }
         return;
       }
@@ -82,7 +84,7 @@ export function CourseStudyButton({ courseId, variant = "default" }: CourseStudy
 
   function handleReviewCards() {
     setShowCompleted(false);
-    router.push(`/courses/${courseId}/study`);
+    router.push(`${courseUrl}/study`);
   }
 
   const isSmall = variant === "sm";

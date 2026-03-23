@@ -14,7 +14,7 @@ import {
   getNextStepPosition,
 } from "@flashcards/database/courses";
 import { cleanupDependenciesForCourse } from "@flashcards/database/dependencies";
-import { canViewCourse, redactQuizAnswers, redactQuestionOptions } from "@flashcards/database/access";
+import { canViewCourse, canForkCourse, redactQuizAnswers, redactQuestionOptions } from "@flashcards/database/access";
 import { eq, sql, isNull, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth, getOptionalUser } from "@/lib/auth";
@@ -68,6 +68,7 @@ export async function getCourse(id: number) {
     color: courses.color,
     isActive: courses.isActive,
     position: courses.position,
+    publicId: courses.publicId,
     estimatedHours: courses.estimatedHours,
     totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
     dueCards: sql<number>`(SELECT COUNT(*) FROM course_deck cd INNER JOIN flashcard f ON f.deck_id = cd.deck_id WHERE cd.course_id = "course"."id" AND f.next_review_at <= unixepoch())`,
@@ -122,6 +123,7 @@ export async function getTopLevelCourses() {
 
   return topCourses.map(c => ({
     ...c,
+    publicId: c.publicId,
     totalDecks: statsMap.get(c.id)?.totalDecks ?? 0,
     dueCards: statsMap.get(c.id)?.dueCards ?? 0,
     isEffectivelyActive: statsMap.get(c.id)?.hasActiveDescendant ?? false,
@@ -552,9 +554,10 @@ export async function getCourseTreeChildren(courseId: number) {
   const children = db.all<{
     id: number; name: string; color: string; is_active: number;
     description: string | null; estimated_hours: number | null;
+    public_id: string;
     total_decks: number; due_cards: number;
   }>(sql`
-    SELECT c.id, c.name, c.color, c.is_active, c.description, c.estimated_hours,
+    SELECT c.id, c.name, c.color, c.is_active, c.description, c.estimated_hours, c.public_id,
       (SELECT COUNT(*) FROM course_deck cd2 WHERE cd2.course_id = c.id) AS total_decks,
       (SELECT COUNT(*) FROM course_deck cd3
        JOIN flashcard f ON f.deck_id = cd3.deck_id
@@ -579,6 +582,7 @@ export async function getCourseTreeChildren(courseId: number) {
     children: children.map(c => ({
       id: c.id, name: c.name, color: c.color,
       isActive: !!c.is_active,
+      publicId: c.public_id,
       description: c.description, estimatedHours: c.estimated_hours,
       totalDecks: c.total_decks, dueCards: c.due_cards,
     })),
@@ -597,6 +601,12 @@ export async function getPublicCourse(publicId: string) {
 
   const isOwner = !!user && course.userId === user.userId;
 
+  // Get author info
+  const author = db.select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, course.userId))
+    .get();
+
   const children = db.select({
     id: courses.id,
     name: courses.name,
@@ -607,6 +617,7 @@ export async function getPublicCourse(publicId: string) {
     publicId: courses.publicId,
     estimatedHours: courses.estimatedHours,
     totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
+    dueCards: sql<number>`(SELECT COUNT(*) FROM course_deck cd INNER JOIN flashcard f ON f.deck_id = cd.deck_id WHERE cd.course_id = "course"."id" AND f.next_review_at <= unixepoch())`,
   }).from(courses)
     .where(eq(courses.parentId, course.id))
     .orderBy(courses.position, courses.name)
@@ -618,6 +629,7 @@ export async function getPublicCourse(publicId: string) {
     name: decks.name,
     description: decks.description,
     flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id")`,
+    dueCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id" AND flashcard.next_review_at <= unixepoch())`,
   })
     .from(courseDecks)
     .innerJoin(decks, eq(courseDecks.deckId, decks.id))
@@ -656,11 +668,24 @@ export async function getPublicCourse(publicId: string) {
   return {
     ...course,
     isOwner,
+    isAuthenticated: !!user,
+    canFork: canForkCourse(course, user?.userId),
+    authorName: author?.name || author?.email?.split("@")[0] || "Unknown",
     children,
     decks: courseDeckRows,
     steps,
     ...(redactedQuizInfo ? { quizInfo: Object.fromEntries(redactedQuizInfo) } : {}),
   };
+}
+
+export async function getCourseIdByPublicId(publicId: string): Promise<number | null> {
+  const { userId } = await requireAuth();
+  const db = getDb();
+  const course = db.select({ id: courses.id })
+    .from(courses)
+    .where(and(eq(courses.publicId, publicId), eq(courses.userId, userId)))
+    .get();
+  return course?.id ?? null;
 }
 
 export async function updateVisibility(courseId: number, visibility: "private" | "public" | "forkable") {

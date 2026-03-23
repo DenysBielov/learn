@@ -1,4 +1,4 @@
-import { getCourse, getCourseBreadcrumbs } from "@/app/actions/courses";
+import { getCourse, getCourseBreadcrumbs, getCourseIdByPublicId } from "@/app/actions/courses";
 import { getCourseQuizQuestions } from "@/app/actions/quiz";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StudyModePicker } from "@/components/study-mode-picker";
@@ -23,10 +23,10 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 export default async function CourseQuizPage({ params, searchParams }: CourseQuizPageProps) {
-  const { id } = await params;
+  const { id: publicId } = await params;
   const { mode } = await searchParams;
-  const courseId = parseInt(id, 10);
-  if (isNaN(courseId)) notFound();
+  const courseId = await getCourseIdByPublicId(publicId);
+  if (!courseId) notFound();
 
   const [course, breadcrumbs] = await Promise.all([
     getCourse(courseId),
@@ -41,7 +41,7 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
         <Breadcrumbs items={[...breadcrumbs, { id: 0, name: "Quiz" }]} />
         <h1 className="text-3xl font-bold tracking-tight">Quiz: {course.name}</h1>
         <p className="text-muted-foreground">Choose a quiz mode:</p>
-        <StudyModePicker courseId={courseId} type="quiz" />
+        <StudyModePicker courseId={courseId} publicId={publicId} type="quiz" />
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
           <CardHeader><CardTitle>No questions available</CardTitle></CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">No quiz questions found in this course tree.</p>
-            <Link href={`/courses/${courseId}`}><Button>Back to Course</Button></Link>
+            <Link href={`/courses/${publicId}`}><Button>Back to Course</Button></Link>
           </CardContent>
         </Card>
       </div>
@@ -72,6 +72,7 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
       deckName={course.name}
       questions={questions}
       courseId={courseId}
+      coursePublicId={publicId}
     />
   );
 }

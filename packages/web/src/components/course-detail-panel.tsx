@@ -193,9 +193,9 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
       </div>
 
       <div className="flex gap-2">
-        <CourseStudyButton courseId={item.id} variant="sm" />
+        <CourseStudyButton courseId={item.id} publicId={item.publicId} variant="sm" />
         <Button asChild variant="outline" size="sm">
-          <Link href={`/courses/${item.id}`}>
+          <Link href={`/courses/${item.publicId}`}>
             <ExternalLink className="mr-2 h-4 w-4" />
             Open
           </Link>

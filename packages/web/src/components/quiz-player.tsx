@@ -53,6 +53,7 @@ interface QuizPlayerProps {
   deckName: string;
   questions: Question[];
   courseId?: number;
+  coursePublicId?: string;
   activeFilterTags?: ActiveFilterTag[];
 }
 
@@ -61,7 +62,7 @@ interface AnswerResult {
   userAnswer: string;
 }
 
-export function QuizPlayer({ quizId, deckName, questions, courseId, activeFilterTags }: QuizPlayerProps) {
+export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublicId, activeFilterTags }: QuizPlayerProps) {
   const router = useRouter();
   const { session, currentActivity, endActivity } = useActiveSession();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -234,7 +235,7 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, activeFilter
           {session && <CompletionNotes sessionId={session.id} />}
 
           <div className="flex gap-3">
-            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${courseId}` : '/')}>
+            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${coursePublicId || courseId}` : '/')}>
               {quizId ? "Back to Quiz" : courseId ? "Back to Course" : "Back to Home"}
             </Button>
             <Button variant="outline" onClick={() => router.push("/")}>

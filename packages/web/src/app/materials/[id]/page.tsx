@@ -27,7 +27,7 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link href="/" className="hover:text-foreground">Home</Link>
           <span>/</span>
-          <Link href={`/courses/${material.step.courseId}`} className="hover:text-foreground">
+          <Link href={`/courses/${material.step.coursePublicId}`} className="hover:text-foreground">
             {material.step.courseName}
           </Link>
           <span>/</span>

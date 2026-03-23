@@ -42,6 +42,7 @@ interface FlashcardStudyProps {
   deckName: string;
   cards: Flashcard[];
   courseId?: number;
+  coursePublicId?: string;
   activeFilterTags?: ActiveFilterTag[];
 }
 
@@ -50,6 +51,7 @@ export function FlashcardStudy({
   deckName,
   cards,
   courseId,
+  coursePublicId,
   activeFilterTags,
 }: FlashcardStudyProps) {
   const router = useRouter();
@@ -261,7 +263,7 @@ export function FlashcardStudy({
             {session && <CompletionNotes sessionId={session.id} />}
 
             <div className="flex gap-3">
-              <Button onClick={() => router.push(courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
+              <Button onClick={() => router.push(courseId ? `/courses/${coursePublicId || courseId}` : `/decks/${deckId}`)}>
                 {courseId ? "Back to Course" : "Back to Deck"}
               </Button>
               <Button variant="outline" onClick={() => router.push("/")}>

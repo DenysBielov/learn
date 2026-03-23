@@ -134,6 +134,7 @@ export async function getMaterial(id: number) {
     position: courseSteps.position,
     courseName: courses.name,
     courseColor: courses.color,
+    coursePublicId: courses.publicId,
   })
     .from(courseSteps)
     .innerJoin(courses, eq(courseSteps.courseId, courses.id))
@@ -209,6 +210,7 @@ export async function getMaterial(id: number) {
     step: step ? {
       id: step.stepId,
       courseId: step.courseId,
+      coursePublicId: step.coursePublicId,
       position: step.position,
       courseName: step.courseName,
       courseColor: step.courseColor,

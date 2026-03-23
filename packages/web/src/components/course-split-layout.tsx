@@ -58,7 +58,7 @@ export function CourseSplitLayout({ items }: CourseSplitLayoutProps) {
 
   const handleNavigate = useCallback((item: TreeItem) => {
     if (item.type === "subcourse") {
-      router.push(`/courses/${item.id}`);
+      router.push(`/courses/${item.publicId}`);
     } else if (item.type === "step") {
       if (item.stepType === "material" && item.materialId) {
         router.push(`/materials/${item.materialId}`);

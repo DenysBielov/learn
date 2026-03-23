@@ -1,4 +1,4 @@
-import { getCourseJourney, getCourse } from "@/app/actions/courses";
+import { getCourseJourney, getCourse, getCourseIdByPublicId } from "@/app/actions/courses";
 import { CourseGraph } from "@/components/course-graph";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -6,7 +6,6 @@ import { notFound } from "next/navigation";
 import { getDb } from "@flashcards/database";
 import { learningDependencies } from "@flashcards/database/schema";
 import { sql } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth";
 
 export const metadata = {
   title: "Dependency Graph — Flashcards",
@@ -17,9 +16,9 @@ export default async function GraphPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const courseId = Number(id);
-  await requireAuth();
+  const { id: publicId } = await params;
+  const courseId = await getCourseIdByPublicId(publicId);
+  if (!courseId) notFound();
 
   const [course, journey] = await Promise.all([
     getCourse(courseId),
@@ -65,7 +64,7 @@ export default async function GraphPage({
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 space-y-4">
       <div className="flex items-center gap-4">
         <Link
-          href={`/courses/${courseId}`}
+          href={`/courses/${publicId}`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />

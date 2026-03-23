@@ -6,6 +6,7 @@ import { Clock, Shuffle, ArrowDown, ListOrdered } from "lucide-react";
 
 interface StudyModePickerProps {
   courseId: number;
+  publicId?: string;
   type: "flashcard" | "quiz";
 }
 
@@ -22,12 +23,13 @@ const quizModes = [
   { value: "weakest_first", label: "Weakest First", description: "Questions you get wrong most often", icon: ArrowDown },
 ];
 
-export function StudyModePicker({ courseId, type }: StudyModePickerProps) {
+export function StudyModePicker({ courseId, publicId, type }: StudyModePickerProps) {
   const router = useRouter();
   const modes = type === "flashcard" ? flashcardModes : quizModes;
+  const courseUrl = publicId ? `/courses/${publicId}` : `/courses/${courseId}`;
   const basePath = type === "flashcard"
-    ? `/courses/${courseId}/study`
-    : `/courses/${courseId}/quiz`;
+    ? `${courseUrl}/study`
+    : `${courseUrl}/quiz`;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">

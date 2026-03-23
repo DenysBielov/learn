@@ -191,7 +191,7 @@ export default async function SessionDetailPage({
               {session.courseName && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Course</span>
-                  <Link href={`/courses/${session.courseId}`} className="text-blue-400 hover:underline truncate ml-2">
+                  <Link href={`/courses/${session.coursePublicId}`} className="text-blue-400 hover:underline truncate ml-2">
                     {session.courseName}
                   </Link>
                 </div>

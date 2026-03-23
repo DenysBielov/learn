@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export type TreeItem =
   | { type: "step"; id: number; stepType: "material" | "quiz"; title: string; materialId: number | null; quizId: number | null; isCompleted: boolean }
   | { type: "deck"; deckId: number; name: string; flashcardCount: number; dueCount: number }
-  | { type: "subcourse"; id: number; name: string; color: string; isActive: boolean; totalDecks: number; dueCards: number; description: string | null; estimatedHours: number | null };
+  | { type: "subcourse"; id: number; publicId: string; name: string; color: string; isActive: boolean; totalDecks: number; dueCards: number; description: string | null; estimatedHours: number | null };
 
 interface CourseTreeProps {
   items: TreeItem[];

@@ -5,6 +5,7 @@ import { ToggleActiveButton } from "@/components/toggle-active-button";
 
 interface CourseCardProps {
   id: number;
+  publicId: string;
   name: string;
   description: string;
   color: string;
@@ -13,9 +14,9 @@ interface CourseCardProps {
   isActive: boolean;
 }
 
-export function CourseCard({ id, name, description, color, totalDecks, dueCards, isActive }: CourseCardProps) {
+export function CourseCard({ id, publicId, name, description, color, totalDecks, dueCards, isActive }: CourseCardProps) {
   return (
-    <Link href={`/courses/${id}`} className="block">
+    <Link href={`/courses/${publicId}`} className="block">
       <Card className="h-full overflow-hidden transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
         <div className="h-1.5" style={{ backgroundColor: color }} />
         <CardHeader>

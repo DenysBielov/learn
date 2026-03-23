@@ -240,6 +240,7 @@ export async function getSession(id: number) {
   return {
     ...session,
     courseName: course?.name ?? null,
+    coursePublicId: course?.publicId ?? null,
     activities: enrichedActivities,
     cardReviews,
     quizAnswers: quizAnswersList,

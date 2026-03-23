@@ -4,6 +4,7 @@ import { ChevronRight, Home } from "lucide-react";
 interface BreadcrumbItem {
   id: number;
   name: string;
+  publicId?: string;
 }
 
 interface BreadcrumbsProps {
@@ -22,7 +23,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           {i === items.length - 1 ? (
             <span className="text-foreground font-medium">{item.name}</span>
           ) : (
-            <Link href={`/courses/${item.id}`} className="hover:text-foreground transition-colors">
+            <Link href={`/courses/${item.publicId ?? item.id}`} className="hover:text-foreground transition-colors">
               {item.name}
             </Link>
           )}

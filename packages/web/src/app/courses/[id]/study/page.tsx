@@ -1,4 +1,4 @@
-import { getCourse, getCourseBreadcrumbs } from "@/app/actions/courses";
+import { getCourse, getCourseBreadcrumbs, getCourseIdByPublicId } from "@/app/actions/courses";
 import { getCourseFlashcards } from "@/app/actions/flashcards";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StudyModePicker } from "@/components/study-mode-picker";
@@ -24,10 +24,10 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 export default async function CourseStudyPage({ params, searchParams }: CourseStudyPageProps) {
-  const { id } = await params;
+  const { id: publicId } = await params;
   const { mode } = await searchParams;
-  const courseId = parseInt(id, 10);
-  if (isNaN(courseId)) notFound();
+  const courseId = await getCourseIdByPublicId(publicId);
+  if (!courseId) notFound();
 
   const [course, breadcrumbs] = await Promise.all([
     getCourse(courseId),
@@ -43,7 +43,7 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
         <Breadcrumbs items={[...breadcrumbs, { id: 0, name: "Study" }]} />
         <h1 className="text-3xl font-bold tracking-tight">Study {course.name}</h1>
         <p className="text-muted-foreground">Choose a study mode:</p>
-        <StudyModePicker courseId={courseId} type="flashcard" />
+        <StudyModePicker courseId={courseId} publicId={publicId} type="flashcard" />
       </div>
     );
   }
@@ -64,7 +64,7 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
                 ? "No cards are due for review in this course."
                 : "No flashcards found in this course tree."}
             </p>
-            <Link href={`/courses/${courseId}`}>
+            <Link href={`/courses/${publicId}`}>
               <Button>Back to Course</Button>
             </Link>
           </CardContent>
@@ -84,6 +84,7 @@ export default async function CourseStudyPage({ params, searchParams }: CourseSt
       deckName={course.name}
       cards={cards}
       courseId={courseId}
+      coursePublicId={publicId}
     />
   );
 }
