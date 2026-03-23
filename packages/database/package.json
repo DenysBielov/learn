@@ -12,7 +12,8 @@
     "./push-subscriptions": "./src/push-subscriptions.ts",
     "./dependencies": "./src/dependencies.ts",
     "./events": "./src/events.ts",
-    "./access": "./src/access.ts"
+    "./access": "./src/access.ts",
+    "./fork": "./src/fork.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",
