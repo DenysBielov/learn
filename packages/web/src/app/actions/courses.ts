@@ -663,6 +663,17 @@ export async function getPublicCourse(publicId: string) {
   };
 }
 
+export async function updateVisibility(courseId: number, visibility: "private" | "public" | "forkable") {
+  const { userId } = await requireAuth();
+  const db = getDb();
+  const course = db.select().from(courses).where(and(eq(courses.id, courseId), eq(courses.userId, userId))).get();
+  if (!course || course.parentId !== null) throw new Error("Cannot set visibility on sub-courses");
+  writeTransaction(db, () => {
+    db.update(courses).set({ visibility }).where(eq(courses.id, courseId)).run();
+  });
+  revalidatePath(`/courses/${courseId}`);
+}
+
 export async function getPublicCourses(page: number = 1, limit: number = 20) {
   const db = getDb();
   const offset = (page - 1) * limit;

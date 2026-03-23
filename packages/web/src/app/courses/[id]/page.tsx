@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SessionHistory } from "@/components/session-history";
+import { VisibilitySelect } from "@/components/visibility-select";
 import { GitBranch } from "lucide-react";
 
 interface CoursePageProps {
@@ -73,6 +74,9 @@ export default async function CoursePage({ params }: CoursePageProps) {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{course.name}</h1>
           <ToggleActiveButton courseId={course.id} isActive={course.isActive} variant="header" />
           <EditCourseDialog course={{ id: course.id, name: course.name, description: course.description, color: course.color }} />
+          {course.parentId === null && (
+            <VisibilitySelect courseId={course.id} visibility={course.visibility} />
+          )}
         </div>
         {course.description && (
           <p className="text-muted-foreground mt-2 ml-5">{course.description}</p>
