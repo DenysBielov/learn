@@ -7,6 +7,9 @@ import { sql } from "drizzle-orm";
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
+  name: text("name"),
+  image: text("image"),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   passwordHash: text("password_hash").notNull(),
   mcpTokenHash: text("mcp_token_hash"),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -146,8 +149,8 @@ export const flashcardTags = sqliteTable("flashcard_tag", {
 // --- QuizQuestion ---
 export const quizQuestions = sqliteTable("quiz_question", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  deckId: integer("deck_id").notNull().references(() => decks.id, { onDelete: "cascade" }),
-  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "cascade" }),
+  deckId: integer("deck_id").references(() => decks.id, { onDelete: "set null" }),
+  quizId: integer("quiz_id").notNull().references(() => quizzes.id, { onDelete: "cascade" }),
   type: text("type", { enum: ["multiple_choice", "true_false", "free_text", "matching", "ordering", "open_ended", "cloze", "multi_select", "code_eval"] }).notNull(),
   question: text("question").notNull(),
   explanation: text("explanation").default(""),
@@ -215,7 +218,7 @@ export const sessionActivities = sqliteTable("session_activity", {
   index("idx_session_activity_quiz").on(table.quizId),
   check("chk_activity_type_source", sql`
     (type = 'flashcard_review' AND quiz_id IS NULL AND material_id IS NULL) OR
-    (type = 'quiz_answer' AND material_id IS NULL AND NOT (deck_id IS NOT NULL AND quiz_id IS NOT NULL)) OR
+    (type = 'quiz_answer' AND material_id IS NULL AND deck_id IS NULL) OR
     (type = 'reading' AND material_id IS NOT NULL AND deck_id IS NULL AND quiz_id IS NULL)
   `),
 ]);
@@ -405,7 +408,6 @@ export const events = sqliteTable("event", {
 export const deckRelations = relations(decks, ({ one, many }) => ({
   user: one(users, { fields: [decks.userId], references: [users.id] }),
   flashcards: many(flashcards),
-  quizQuestions: many(quizQuestions),
   courseDecks: many(courseDecks),
   materialDecks: many(materialDecks),
 }));
@@ -452,7 +454,6 @@ export const stepProgressRelations = relations(stepProgress, ({ one }) => ({
 }));
 
 export const quizQuestionRelations = relations(quizQuestions, ({ one, many }) => ({
-  deck: one(decks, { fields: [quizQuestions.deckId], references: [decks.id] }),
   quiz: one(quizzes, { fields: [quizQuestions.quizId], references: [quizzes.id] }),
   sourceMaterial: one(materials, { fields: [quizQuestions.sourceMaterialId], references: [materials.id] }),
   options: many(questionOptions),
