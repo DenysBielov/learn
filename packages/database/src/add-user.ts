@@ -1,9 +1,9 @@
 import { getDb, closeDb } from "./index.js";
-import { users } from "./schema.js";
+import { users, account, apiTokens } from "./schema.js";
 import bcrypt from "bcrypt";
 import readline from "node:readline/promises";
 import { stdin, stdout, env } from "node:process";
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes, createHash, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 
 const BCRYPT_ROUNDS = 10;
@@ -44,8 +44,12 @@ async function main() {
       }
 
       const { token, hash } = generateMcpToken();
-      db.update(users).set({ mcpTokenHash: hash })
-        .where(eq(users.id, user.id)).run();
+      db.insert(apiTokens).values({
+        userId: user.id,
+        type: "mcp",
+        name: "MCP Token",
+        tokenHash: hash,
+      }).run();
 
       console.log(`\nMCP token for ${email} (save this — it will not be shown again):`);
       console.log(token);
@@ -90,10 +94,37 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const { token, hash: mcpTokenHash } = generateMcpToken();
+  const name = email.split("@")[0];
 
   const db = getDb();
   try {
-    db.insert(users).values({ email, passwordHash, mcpTokenHash }).run();
+    // Insert user
+    const result = db.insert(users).values({
+      email,
+      name,
+      emailVerified: true,
+      passwordHash,
+    }).run();
+
+    const userId = Number(result.lastInsertRowid);
+
+    // Insert credential account (Better Auth format)
+    db.insert(account).values({
+      id: randomUUID(),
+      userId,
+      providerId: "credential",
+      accountId: String(userId),
+      password: passwordHash,
+    }).run();
+
+    // Insert MCP API token
+    db.insert(apiTokens).values({
+      userId,
+      type: "mcp",
+      name: "MCP Token",
+      tokenHash: mcpTokenHash,
+    }).run();
+
     console.log(`User created: ${email}`);
     console.log(`\nMCP token (save this — it will not be shown again):`);
     console.log(token);
