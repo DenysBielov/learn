@@ -38,7 +38,9 @@ export function proxy(request: NextRequest) {
   }
 
   // UX redirect only — cookie existence check, NOT session validation.
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  // Better Auth uses __Secure- prefix on HTTPS, plain name on HTTP
+  const sessionToken = request.cookies.get("better-auth.session_token")
+    || request.cookies.get("__Secure-better-auth.session_token");
   if (!sessionToken) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
