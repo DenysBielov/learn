@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type AppDatabase, learningMaterials, flashcards, quizQuestions, decks, writeTransaction } from "@flashcards/database";
+import { type AppDatabase, learningMaterials, flashcards, quizQuestions, decks, quizzes, writeTransaction } from "@flashcards/database";
 import { eq, and } from "drizzle-orm";
 import { emitEvent } from "@flashcards/database/events";
 
@@ -61,8 +61,8 @@ export function registerLearningMaterialTools(server: McpServer, db: AppDatabase
       }
       if (question_id) {
         const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-          .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-          .where(and(eq(quizQuestions.id, question_id), eq(decks.userId, userId)))
+          .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+          .where(and(eq(quizQuestions.id, question_id), eq(quizzes.userId, userId)))
           .get();
         if (!q) return { content: [{ type: "text" as const, text: `Question ${question_id} not found` }], isError: true };
       }
@@ -128,8 +128,8 @@ export function registerLearningMaterialTools(server: McpServer, db: AppDatabase
       }
       if (question_id) {
         const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-          .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-          .where(and(eq(quizQuestions.id, question_id), eq(decks.userId, userId)))
+          .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+          .where(and(eq(quizQuestions.id, question_id), eq(quizzes.userId, userId)))
           .get();
         if (!q) return { content: [{ type: "text" as const, text: `Question ${question_id} not found` }], isError: true };
       }
@@ -174,8 +174,8 @@ export function registerLearningMaterialTools(server: McpServer, db: AppDatabase
         if (!card) return { content: [{ type: "text" as const, text: "Not authorized" }], isError: true };
       } else if (material.questionId) {
         const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-          .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-          .where(and(eq(quizQuestions.id, material.questionId), eq(decks.userId, userId)))
+          .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+          .where(and(eq(quizQuestions.id, material.questionId), eq(quizzes.userId, userId)))
           .get();
         if (!q) return { content: [{ type: "text" as const, text: "Not authorized" }], isError: true };
       }

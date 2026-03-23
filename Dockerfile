@@ -27,6 +27,7 @@ RUN pnpm build
 # Prepare a self-contained migration directory with npm (flat node_modules, no symlinks)
 RUN mkdir -p /migrate && \
     cp scripts/docker-migrate.mjs /migrate/migrate.mjs && \
+    cp scripts/migrate-questions-to-quizzes.mjs /migrate/migrate-questions-to-quizzes.mjs && \
     cp -r packages/database/src/migrations /migrate/migrations && \
     cd /migrate && \
     echo '{"type":"module"}' > package.json && \

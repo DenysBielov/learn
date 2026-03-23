@@ -9,6 +9,7 @@ import {
   flashcards,
   quizQuestions,
   decks,
+  quizzes,
   studySessions,
   courses,
 } from "@flashcards/database/schema";
@@ -341,16 +342,16 @@ export async function POST(request: NextRequest) {
         question: quizQuestions.question,
         correctAnswer: quizQuestions.correctAnswer,
         explanation: quizQuestions.explanation,
-        deckName: decks.name,
+        quizTitle: quizzes.title,
       })
       .from(quizQuestions)
-      .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-      .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId)))
+      .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+      .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId)))
       .get();
     if (q) {
       const isEducate = chatMode === "educate";
       contextMessage = buildContextMessage({
-        deckName: q.deckName,
+        deckName: q.quizTitle,
         question: q.question,
         correctAnswer: isEducate ? null : q.correctAnswer,
         explanation: isEducate ? null : q.explanation,

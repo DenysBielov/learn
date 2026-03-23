@@ -429,7 +429,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
 
               if (existing) {
                 db.update(stepProgress)
-                  .set({ isCompleted: true, completedAt: new Date() })
+                  .set({ isCompleted: true, completedAt: endTime })
                   .where(eq(stepProgress.id, existing.id))
                   .run();
               } else {
@@ -438,7 +438,7 @@ export function registerSessionTools(server: McpServer, db: AppDatabase, userId:
                     courseStepId: step.stepId,
                     userId,
                     isCompleted: true,
-                    completedAt: new Date(),
+                    completedAt: endTime,
                   })
                   .run();
               }

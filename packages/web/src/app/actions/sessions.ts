@@ -622,23 +622,12 @@ export async function getSessionFeedData(sessionId: number): Promise<{
     }
   }
 
-  // Count total questions per deck (only for quiz_answer activities with a deckId)
-  const quizActivityDeckIds = [...new Set(rawActivities.filter(a => a.type === "quiz_answer" && a.deckId).map(a => a.deckId!))];
-  const deckQuestionTotalMap = new Map<number, number>();
-  if (quizActivityDeckIds.length > 0) {
-    const rows = db.select({ deckId: quizQuestions.deckId, count: count() }).from(quizQuestions)
-      .where(inArray(quizQuestions.deckId, quizActivityDeckIds))
-      .groupBy(quizQuestions.deckId).all();
-    for (const r of rows) deckQuestionTotalMap.set(r.deckId, r.count);
-  }
-
   const activitiesResult: FeedActivity[] = rawActivities.map(a => {
     let title: string | null = null;
     if (a.type === "reading" && a.materialId) {
       title = materialTitleMap.get(a.materialId) ?? null;
     } else if (a.type === "quiz_answer") {
       title = (a.quizId ? quizTitleMap.get(a.quizId) : null)
-           ?? (a.deckId ? deckNameMap.get(a.deckId) : null)
            ?? null;
     } else if (a.type === "flashcard_review" && a.deckId) {
       title = deckNameMap.get(a.deckId) ?? null;
@@ -651,9 +640,6 @@ export async function getSessionFeedData(sessionId: number): Promise<{
       const answered = quizResultMap.get(a.id) ?? 0;
       if (a.quizId) {
         const total = quizTotalMap.get(a.quizId) ?? 0;
-        progress = total > 0 ? Math.round((answered / total) * 100) : (a.completedAt ? 100 : 0);
-      } else if (a.deckId) {
-        const total = deckQuestionTotalMap.get(a.deckId) ?? 0;
         progress = total > 0 ? Math.round((answered / total) * 100) : (a.completedAt ? 100 : 0);
       } else {
         progress = a.completedAt ? 100 : 0;

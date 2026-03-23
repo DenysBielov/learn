@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { and, eq, isNull, isNotNull, sql } from "drizzle-orm";
-import { type AppDatabase, cardFlags, flashcards, quizQuestions, questionOptions, decks, courses, courseDecks, writeTransaction } from "@flashcards/database";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { type AppDatabase, cardFlags, flashcards, quizQuestions, questionOptions, decks, quizzes, courses, courseDecks, writeTransaction } from "@flashcards/database";
 import { emitEvent } from "@flashcards/database/events";
 
 export function registerFlagTools(server: McpServer, db: AppDatabase, userId: number) {
@@ -31,13 +31,15 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
         // Question details
         questionText: quizQuestions.question,
         questionType: quizQuestions.type,
-        // Deck info
+        // Deck/quiz info
         deckName: decks.name,
+        quizTitle: quizzes.title,
       })
         .from(cardFlags)
         .leftJoin(flashcards, eq(cardFlags.flashcardId, flashcards.id))
         .leftJoin(quizQuestions, eq(cardFlags.questionId, quizQuestions.id))
-        .leftJoin(decks, sql`${decks.id} = COALESCE(${flashcards.deckId}, ${quizQuestions.deckId})`)
+        .leftJoin(decks, eq(decks.id, flashcards.deckId))
+        .leftJoin(quizzes, eq(quizzes.id, quizQuestions.quizId))
         .where(and(...conditions))
         .all();
 
@@ -58,7 +60,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
           id: f.questionId,
           question: f.questionText,
           questionType: f.questionType,
-          deckName: f.deckName,
+          quizTitle: f.quizTitle,
         },
       }));
 
@@ -156,7 +158,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "get_learning_queue",
-    "Get quiz questions the user skipped or flagged as needing more study. Returns full question context including options, explanation, deck name, and course hierarchy. Use this to identify topics the user needs help with, then create flashcards or teach relevant concepts.",
+    "Get quiz questions the user skipped or flagged as needing more study. Returns full question context including options, explanation, quiz title, and course hierarchy. Use this to identify topics the user needs help with, then create flashcards or teach relevant concepts.",
     {
       deck_id: z.number().int().positive().optional().describe("Filter to a specific deck"),
       course_id: z.number().int().positive().optional().describe("Filter to a specific course (includes all decks in course tree)"),
@@ -197,25 +199,27 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
         questionType: quizQuestions.type,
         explanation: quizQuestions.explanation,
         correctAnswer: quizQuestions.correctAnswer,
-        questionDeckId: quizQuestions.deckId,
+        questionQuizId: quizQuestions.quizId,
         flashcardFront: flashcards.front,
         flashcardBack: flashcards.back,
         flashcardDeckId: flashcards.deckId,
         deckName: decks.name,
+        quizTitle: quizzes.title,
       })
         .from(cardFlags)
         .leftJoin(quizQuestions, eq(cardFlags.questionId, quizQuestions.id))
         .leftJoin(flashcards, eq(cardFlags.flashcardId, flashcards.id))
-        .leftJoin(decks, sql`${decks.id} = COALESCE(${quizQuestions.deckId}, ${flashcards.deckId})`)
+        .leftJoin(decks, eq(decks.id, flashcards.deckId))
+        .leftJoin(quizzes, eq(quizzes.id, quizQuestions.quizId))
         .where(and(...conditions))
         .all();
 
       // Apply deck filtering
       let filtered = flags;
       if (deck_id) {
-        filtered = flags.filter(f => (f.questionDeckId ?? f.flashcardDeckId) === deck_id);
+        filtered = flags.filter(f => f.flashcardDeckId === deck_id);
       } else if (deckFilter) {
-        filtered = flags.filter(f => deckFilter!.includes((f.questionDeckId ?? f.flashcardDeckId)!));
+        filtered = flags.filter(f => f.flashcardDeckId && deckFilter!.includes(f.flashcardDeckId));
       }
 
       // Fetch options for quiz questions
@@ -228,7 +232,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
           isCorrect: questionOptions.isCorrect,
         })
           .from(questionOptions)
-          .where(sql`${questionOptions.questionId} IN (${sql.raw(questionIds.join(","))})`)
+          .where(sql`${questionOptions.questionId} IN (${sql.join(questionIds.map(id => sql`${id}`), sql`, `)})`)
           .all();
         for (const opt of options) {
           const list = optionsMap.get(opt.questionId) ?? [];
@@ -244,7 +248,7 @@ export function registerFlagTools(server: McpServer, db: AppDatabase, userId: nu
             type: "question" as const,
             comment: f.comment,
             createdAt: f.createdAt,
-            deckName: f.deckName,
+            quizTitle: f.quizTitle,
             question: {
               id: f.questionId,
               text: f.questionText,

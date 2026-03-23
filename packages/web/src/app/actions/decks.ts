@@ -31,7 +31,6 @@ export async function getDecks() {
       name: decks.name,
       description: decks.description,
       flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id")`,
-      questionCount: sql<number>`(SELECT COUNT(*) FROM quiz_question WHERE quiz_question.deck_id = "deck"."id")`,
       dueCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id" AND flashcard.next_review_at <= unixepoch())`,
       createdAt: decks.createdAt,
       updatedAt: decks.updatedAt,
@@ -48,7 +47,6 @@ export async function getDeck(id: number) {
     where: and(eq(decks.id, id), eq(decks.userId, userId)),
     with: {
       flashcards: { with: { tags: { with: { tag: true } }, learningMaterials: true } },
-      quizQuestions: { with: { options: true, tags: { with: { tag: true } }, learningMaterials: true } },
     },
   });
 }

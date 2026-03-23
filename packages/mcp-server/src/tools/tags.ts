@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import {
-  type AppDatabase, tags, flashcardTags, questionTags, decks, flashcards, quizQuestions, writeTransaction,
+  type AppDatabase, tags, flashcardTags, questionTags, decks, flashcards, quizQuestions, quizzes, writeTransaction,
 } from "@flashcards/database";
 import { emitEvent } from "@flashcards/database/events";
 
@@ -59,12 +59,12 @@ export function registerTagTools(server: McpServer, db: AppDatabase, userId: num
           if (!card) return { content: [{ type: "text" as const, text: `Flashcard ${fId} not found` }], isError: true };
         }
       }
-      // Verify question ownership (via deck)
+      // Verify question ownership (via quiz)
       if (questionIds) {
         for (const qId of questionIds) {
           const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-            .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-            .where(and(eq(quizQuestions.id, qId), eq(decks.userId, userId))).get();
+            .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+            .where(and(eq(quizQuestions.id, qId), eq(quizzes.userId, userId))).get();
           if (!q) return { content: [{ type: "text" as const, text: `Question ${qId} not found` }], isError: true };
         }
       }

@@ -3,7 +3,7 @@ import { generateText, Output } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { getDb } from "@flashcards/database";
-import { quizQuestions, decks } from "@flashcards/database/schema";
+import { quizQuestions, decks, quizzes } from "@flashcards/database/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { checkChatRateLimit, recordChatRequest } from "@/lib/chat-rate-limit";
@@ -39,11 +39,11 @@ export async function POST(request: NextRequest) {
       correctAnswer: quizQuestions.correctAnswer,
       explanation: quizQuestions.explanation,
       type: quizQuestions.type,
-      deckName: decks.name,
+      quizTitle: quizzes.title,
     })
     .from(quizQuestions)
-    .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-    .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId)))
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId)))
     .get();
 
   if (!question || (question.type !== "open_ended" && question.type !== "code_eval")) {

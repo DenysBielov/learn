@@ -21,7 +21,6 @@ export default async function QuizPlayPage({ params }: QuizPlayPageProps) {
   return (
     <QuizPlayer
       quizId={quizId}
-      deckId={0}
       deckName={quiz.title}
       questions={questions}
     />

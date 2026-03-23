@@ -52,4 +52,8 @@ migrate(db, { migrationsFolder: MIGRATIONS_DIR });
 sqlite.pragma("foreign_keys = ON");
 console.log("Migrations applied successfully");
 
+// Run data migrations
+import { migrateQuestionsToQuizzes } from "./migrate-questions-to-quizzes.mjs";
+migrateQuestionsToQuizzes(sqlite);
+
 sqlite.close();

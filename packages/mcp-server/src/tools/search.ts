@@ -37,10 +37,10 @@ export function registerSearchTools(server: McpServer, db: AppDatabase, userId: 
       `).all(userId, ftsQuery);
 
       const questionResults = sqlite.prepare(`
-        SELECT q.id, q.deck_id, q.question, q.type as question_type, 'question' as type
+        SELECT q.id, q.quiz_id, q.question, q.type as question_type, 'question' as type
         FROM question_fts
         JOIN quiz_question q ON q.id = question_fts.rowid
-        JOIN deck d ON q.deck_id = d.id AND d.user_id = ?
+        JOIN quiz qu ON q.quiz_id = qu.id AND qu.user_id = ?
         WHERE question_fts MATCH ?
         LIMIT 50
       `).all(userId, ftsQuery);

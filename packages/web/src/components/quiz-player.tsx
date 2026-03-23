@@ -34,7 +34,6 @@ interface QuestionOption {
 
 interface Question {
   id: number;
-  deckId: number;
   type: "multiple_choice" | "true_false" | "free_text" | "matching" | "ordering" | "open_ended" | "cloze" | "multi_select" | "code_eval";
   question: string;
   explanation: string | null;
@@ -51,7 +50,6 @@ interface ActiveFilterTag {
 
 interface QuizPlayerProps {
   quizId?: number;
-  deckId: number;
   deckName: string;
   questions: Question[];
   courseId?: number;
@@ -63,7 +61,7 @@ interface AnswerResult {
   userAnswer: string;
 }
 
-export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, activeFilterTags }: QuizPlayerProps) {
+export function QuizPlayer({ quizId, deckName, questions, courseId, activeFilterTags }: QuizPlayerProps) {
   const router = useRouter();
   const { session, currentActivity, endActivity } = useActiveSession();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -236,8 +234,8 @@ export function QuizPlayer({ quizId, deckId, deckName, questions, courseId, acti
           {session && <CompletionNotes sessionId={session.id} />}
 
           <div className="flex gap-3">
-            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${courseId}` : `/decks/${deckId}`)}>
-              {quizId ? "Back to Quiz" : courseId ? "Back to Course" : "Back to Deck"}
+            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${courseId}` : '/')}>
+              {quizId ? "Back to Quiz" : courseId ? "Back to Course" : "Back to Home"}
             </Button>
             <Button variant="outline" onClick={() => router.push("/")}>
               Back to Home

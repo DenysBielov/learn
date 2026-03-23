@@ -18,5 +18,8 @@
     "generate": "pnpm --filter @flashcards/database generate",
     "add-user": "pnpm --filter @flashcards/database add-user",
     "seed": "pnpm --filter @flashcards/database seed"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1"
   }
 }

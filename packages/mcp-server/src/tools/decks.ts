@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
-import { type AppDatabase, decks, flashcards, quizQuestions, writeTransaction } from "@flashcards/database";
+import { type AppDatabase, decks, flashcards, writeTransaction } from "@flashcards/database";
 import { emitEvent } from "@flashcards/database/events";
 
 export function registerDeckTools(server: McpServer, db: AppDatabase, userId: number) {
@@ -20,7 +20,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "list_decks",
-    "List all decks with flashcard and question counts",
+    "List all decks with flashcard counts",
     {},
     async () => {
       const result = db
@@ -29,7 +29,6 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
           name: decks.name,
           description: decks.description,
           flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id")`,
-          questionCount: sql<number>`(SELECT COUNT(*) FROM quiz_question WHERE quiz_question.deck_id = "deck"."id")`,
           createdAt: decks.createdAt,
         })
         .from(decks)
@@ -41,14 +40,13 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "get_deck",
-    "Get deck details with its flashcards and questions",
+    "Get deck details with its flashcards",
     { deckId: z.number().int().positive() },
     async ({ deckId }) => {
       const deck = await db.query.decks.findFirst({
         where: and(eq(decks.id, deckId), eq(decks.userId, userId)),
         with: {
           flashcards: true,
-          quizQuestions: { with: { options: true } },
         },
       });
       if (!deck) {
@@ -94,13 +92,11 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
         const result = {
           message: "This will delete the following. Pass confirm=true to proceed.",
           flashcards: db.select({ count: sql<number>`COUNT(*)` }).from(flashcards).where(eq(flashcards.deckId, deckId)).all()[0]?.count ?? 0,
-          questions: db.select({ count: sql<number>`COUNT(*)` }).from(quizQuestions).where(eq(quizQuestions.deckId, deckId)).all()[0]?.count ?? 0,
           studySessions: db.select({ count: sql<number>`(SELECT COUNT(DISTINCT session_id) FROM session_activity WHERE deck_id = ${deckId})` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
           courseDeckLinks: db.select({ count: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE deck_id = ${deckId})` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
           flashcardResults: db.select({ count: sql<number>`(SELECT COUNT(*) FROM flashcard_result WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
-          quizResults: db.select({ count: sql<number>`(SELECT COUNT(*) FROM quiz_result WHERE question_id IN (SELECT id FROM quiz_question WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
-          chatConversations: db.select({ count: sql<number>`(SELECT COUNT(*) FROM chat_conversation WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}) OR question_id IN (SELECT id FROM quiz_question WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
-          cardFlags: db.select({ count: sql<number>`(SELECT COUNT(*) FROM card_flag WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}) OR question_id IN (SELECT id FROM quiz_question WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
+          chatConversations: db.select({ count: sql<number>`(SELECT COUNT(*) FROM chat_conversation WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
+          cardFlags: db.select({ count: sql<number>`(SELECT COUNT(*) FROM card_flag WHERE flashcard_id IN (SELECT id FROM flashcard WHERE deck_id = ${deckId}))` }).from(decks).where(eq(decks.id, deckId)).all()[0]?.count ?? 0,
         };
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }

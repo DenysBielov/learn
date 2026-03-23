@@ -69,7 +69,6 @@ export default async function CourseQuizPage({ params, searchParams }: CourseQui
 
   return (
     <QuizPlayer
-      deckId={0}
       deckName={course.name}
       questions={questions}
       courseId={courseId}

@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb, writeTransaction } from "@flashcards/database";
-import { learningMaterials, flashcards, quizQuestions, decks } from "@flashcards/database/schema";
+import { learningMaterials, flashcards, quizQuestions, decks, quizzes } from "@flashcards/database/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
@@ -54,8 +54,8 @@ export async function addLearningMaterial(
   }
   if (questionId) {
     const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-      .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-      .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId)))
+      .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+      .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId)))
       .get();
     if (!q) throw new Error("Question not found");
   }
@@ -110,8 +110,8 @@ export async function removeLearningMaterial(id: number) {
     if (!card) throw new Error("Not authorized");
   } else if (material.questionId) {
     const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-      .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-      .where(and(eq(quizQuestions.id, material.questionId), eq(decks.userId, userId)))
+      .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+      .where(and(eq(quizQuestions.id, material.questionId), eq(quizzes.userId, userId)))
       .get();
     if (!q) throw new Error("Not authorized");
   }

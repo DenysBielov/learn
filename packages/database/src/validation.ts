@@ -60,7 +60,6 @@ export const questionOptionSchema = z.object({
 
 // --- Quiz Question: create schema per type ---
 const baseQuestionSchema = z.object({
-  deckId: z.number().int().positive(),
   question: z.string().min(1).max(MAX_QUESTION_TEXT),
   explanation: z.string().max(MAX_EXPLANATION).default(""),
   sourceMaterialId: z.number().int().positive().optional(),
@@ -157,24 +156,6 @@ export const createQuizQuestionSchema = z.discriminatedUnion("type", [
 ]);
 
 export type CreateQuizQuestion = z.infer<typeof createQuizQuestionSchema>;
-
-// --- Batch quiz creation (per-type schemas without deckId) ---
-const batchQuizQuestionSchema = z.discriminatedUnion("type", [
-  createMultipleChoiceSchema.omit({ deckId: true }),
-  createTrueFalseSchema.omit({ deckId: true }),
-  createFreeTextSchema.omit({ deckId: true }),
-  createMatchingSchema.omit({ deckId: true }),
-  createOrderingSchema.omit({ deckId: true }),
-  createOpenEndedSchema.omit({ deckId: true }),
-  createClozeSchema.omit({ deckId: true }),
-  createMultiSelectSchema.omit({ deckId: true }),
-  createCodeEvalSchema.omit({ deckId: true }),
-]);
-
-export const createQuizBatchSchema = z.object({
-  deckId: z.number().int().positive(),
-  questions: z.array(batchQuizQuestionSchema).min(1).max(50),
-});
 
 // --- Study results ---
 export const submitFlashcardResultSchema = z.object({

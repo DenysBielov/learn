@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { tags, flashcardTags, questionTags, flashcards, quizQuestions, decks } from "@flashcards/database/schema";
+import { tags, flashcardTags, questionTags, flashcards, quizQuestions, decks, quizzes } from "@flashcards/database/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
@@ -299,8 +299,8 @@ function verifyFlashcardOwnership(db: ReturnType<typeof getDb>, flashcardId: num
 
 function verifyQuestionOwnership(db: ReturnType<typeof getDb>, questionId: number, userId: number) {
   const q = db.select({ id: quizQuestions.id }).from(quizQuestions)
-    .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
-    .where(and(eq(quizQuestions.id, questionId), eq(decks.userId, userId))).get();
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId))).get();
   if (!q) throw new Error("Question not found");
 }
 

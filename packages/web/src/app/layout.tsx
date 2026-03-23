@@ -4,10 +4,12 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ActiveSessionProvider } from "@/components/active-session-provider";
 import { SessionWidget } from "@/components/session-widget";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { Nav } from "@/components/nav";
 import { RealtimeProvider } from "@/components/realtime-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
 import { getActiveSession } from "@/app/actions/flashcards";
 import { getAuthUser } from "@/lib/auth";
 
@@ -57,11 +59,13 @@ export default async function RootLayout({
                   {children}
                 </main>
                 <SessionWidget />
+                <FeedbackButton />
               </ActiveSessionProvider>
             ) : (
               <main className="flex-1">{children}</main>
             )}
           </div>
+          <Toaster richColors />
         </ThemeProvider>
       </body>
     </html>

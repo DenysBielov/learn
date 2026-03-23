@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb } from "@flashcards/database";
-import { studySessions, flashcardResults, quizResults, flashcards, decks, quizQuestions } from "@flashcards/database/schema";
+import { studySessions, flashcardResults, quizResults, flashcards, decks, quizQuestions, quizzes } from "@flashcards/database/schema";
 import { and, eq, sql, gte, count, isNull, or } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 
@@ -45,9 +45,9 @@ export async function getStudyStats() {
   }).from(quizResults)
     .leftJoin(studySessions, eq(quizResults.sessionId, studySessions.id))
     .innerJoin(quizQuestions, eq(quizResults.questionId, quizQuestions.id))
-    .innerJoin(decks, eq(quizQuestions.deckId, decks.id))
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
     .where(and(
-      eq(decks.userId, userId),
+      eq(quizzes.userId, userId),
       or(isNull(studySessions.discardedAt), isNull(quizResults.sessionId)),
     )).get();
 

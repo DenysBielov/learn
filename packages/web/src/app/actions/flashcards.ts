@@ -399,7 +399,7 @@ export async function startActivity(
   const { userId } = await requireAuth();
   const db = getDb();
 
-  if (type === "quiz_answer" && !opts.quizId && !opts.deckId) throw new Error("quiz_answer requires quizId or deckId");
+  if (type === "quiz_answer" && !opts.quizId) throw new Error("quiz_answer requires quizId");
   if (type === "reading" && !opts.materialId) throw new Error("reading requires materialId");
 
   if (opts.deckId) {
@@ -441,7 +441,7 @@ export async function startActivity(
     return db.insert(sessionActivities).values({
       sessionId,
       type,
-      deckId: opts.deckId ?? null,
+      deckId: type === "quiz_answer" ? null : (opts.deckId ?? null),
       quizId: opts.quizId ?? null,
       materialId: opts.materialId ?? null,
     }).returning().all();

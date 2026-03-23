@@ -111,7 +111,7 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
 
   server.tool(
     "add_questions_to_quiz",
-    "Add quiz questions to a standalone quiz. Same question types and format as create_quiz but uses quizId instead of deckId.",
+    "Add quiz questions to a standalone quiz. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).",
     {
       quizId: z.number().int().positive(),
       sourceMaterialId: z.number().int().positive().optional().describe("Optional ID of the source material these questions were generated from."),

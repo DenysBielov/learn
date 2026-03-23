@@ -7,11 +7,10 @@ interface DeckCardProps {
   name: string;
   description: string;
   flashcardCount: number;
-  questionCount: number;
   dueCount: number;
 }
 
-export function DeckCard({ id, name, description, flashcardCount, questionCount, dueCount }: DeckCardProps) {
+export function DeckCard({ id, name, description, flashcardCount, dueCount }: DeckCardProps) {
   return (
     <Link href={`/decks/${id}`} className="block">
       <Card className="h-full transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
@@ -28,7 +27,7 @@ export function DeckCard({ id, name, description, flashcardCount, questionCount,
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">
-            {flashcardCount} flashcard{flashcardCount !== 1 ? "s" : ""}, {questionCount} question{questionCount !== 1 ? "s" : ""}
+            {flashcardCount} flashcard{flashcardCount !== 1 ? "s" : ""}
           </div>
         </CardContent>
       </Card>

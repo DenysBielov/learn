@@ -103,7 +103,6 @@ export default async function DashboardPage() {
                     name={deck.name}
                     description={deck.description ?? ""}
                     flashcardCount={deck.flashcardCount}
-                    questionCount={deck.questionCount}
                     dueCount={deck.dueCount}
                   />
                 ))}

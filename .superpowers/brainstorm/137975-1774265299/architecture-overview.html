@@ -1,0 +1,135 @@
+<h2>Architecture Overview</h2>
+<p class="subtitle">Full picture of all changes</p>
+
+<div class="section">
+  <h3>Database Changes</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div class="label">Modified Tables</div>
+      <div style="font-family: monospace; font-size: 13px; line-height: 1.8; color: #e0e0e0;">
+        <div><span style="color: #7c9cff;">users</span> + name, image, emailVerified</div>
+        <div><span style="color: #7c9cff;">courses</span> + visibility, forkedFrom*</div>
+      </div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div class="label">New Tables</div>
+      <div style="font-family: monospace; font-size: 13px; line-height: 1.8; color: #e0e0e0;">
+        <div><span style="color: #66bb6a;">accounts</span> — OAuth providers</div>
+        <div><span style="color: #66bb6a;">credentials</span> — password hashes</div>
+        <div><span style="color: #66bb6a;">verification_tokens</span> — email verify</div>
+        <div><span style="color: #66bb6a;">api_tokens</span> — per-user keys</div>
+        <div><span style="color: #66bb6a;">sessions</span> — Auth.js sessions</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Auth System (Auth.js)</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+      <div style="text-align: center;">
+        <div style="background: #4285f4; color: white; padding: 8px 20px; border-radius: 6px; font-weight: 600;">Google OAuth</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="background: #333; color: white; padding: 8px 20px; border-radius: 6px; font-weight: 600;">GitHub OAuth</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="background: #6366f1; color: white; padding: 8px 20px; border-radius: 6px; font-weight: 600;">Email + Password</div>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 12px; color: #888;">
+      All providers &rarr; Auth.js &rarr; Unified session &rarr; User record
+    </div>
+    <div style="text-align: center; margin-top: 8px; color: #888; font-size: 13px;">
+      Email verification via Resend (email+password only)
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Public Courses Flow</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 14px;">
+      <div style="background: #2a2a3e; padding: 8px 14px; border-radius: 6px; border: 1px solid #444;">
+        Creator sets<br><strong>visibility</strong>
+      </div>
+      <div style="color: #666;">&rarr;</div>
+      <div style="background: #2a2a3e; padding: 8px 14px; border-radius: 6px; border: 1px solid #444;">
+        Course appears<br>on <strong>/explore</strong>
+      </div>
+      <div style="color: #666;">&rarr;</div>
+      <div style="background: #2a2a3e; padding: 8px 14px; border-radius: 6px; border: 1px solid #444;">
+        Anyone can<br><strong>view content</strong>
+      </div>
+      <div style="color: #666;">&rarr;</div>
+      <div style="background: #2a2a3e; padding: 8px 14px; border-radius: 6px; border: 1px solid #444;">
+        Registered users<br><strong>fork to library</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Visibility Levels</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; text-align: center;">
+      <div style="font-size: 24px; margin-bottom: 8px;">&#128274;</div>
+      <div style="font-weight: 600; margin-bottom: 4px;">Private</div>
+      <div style="font-size: 13px; color: #888;">Only owner can see</div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; text-align: center;">
+      <div style="font-size: 24px; margin-bottom: 8px;">&#128065;</div>
+      <div style="font-weight: 600; margin-bottom: 4px;">Public</div>
+      <div style="font-size: 13px; color: #888;">Anyone can view, no forking</div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; text-align: center;">
+      <div style="font-size: 24px; margin-bottom: 8px;">&#128256;</div>
+      <div style="font-weight: 600; margin-bottom: 4px;">Public + Forkable</div>
+      <div style="font-size: 13px; color: #888;">View + fork full copy</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Fork: Deep Copy</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; font-size: 14px; line-height: 1.8;">
+    <div style="display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;">
+      <div>
+        <div class="label" style="color: #66bb6a;">Copied</div>
+        <div>Course hierarchy (all sub-courses)</div>
+        <div>Materials + resources</div>
+        <div>Decks + flashcards</div>
+        <div>Quizzes + questions</div>
+        <div>Course tags</div>
+      </div>
+      <div>
+        <div class="label" style="color: #ef5350;">Not Copied</div>
+        <div>Study sessions / progress</div>
+        <div>Visibility (starts private)</div>
+        <div>Original's future edits</div>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 12px; color: #888; font-size: 13px;">
+      Attribution: "Forked from [Name] by [Author]" preserved even if original deleted
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>New Pages</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px;">
+      <strong>/explore</strong> — public course catalog
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px;">
+      <strong>/register</strong> — sign up (OAuth + email)
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px;">
+      <strong>/login</strong> — updated with OAuth buttons
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px;">
+      <strong>/settings</strong> — profile, API keys, accounts
+    </div>
+  </div>
+</div>
