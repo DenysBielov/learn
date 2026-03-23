@@ -1,7 +1,7 @@
 "use server";
 
 import { getDb, writeTransaction } from "@flashcards/database";
-import { courses, courseDecks, decks, courseSteps, materials, quizzes, stepProgress } from "@flashcards/database/schema";
+import { courses, courseDecks, decks, courseSteps, materials, quizzes, stepProgress, users } from "@flashcards/database/schema";
 import { createCourseSchema, updateCourseSchema, toggleCourseActiveSchema } from "@flashcards/database/validation";
 import {
   checkCircularReference,
@@ -14,9 +14,10 @@ import {
   getNextStepPosition,
 } from "@flashcards/database/courses";
 import { cleanupDependenciesForCourse } from "@flashcards/database/dependencies";
-import { eq, sql, isNull, and } from "drizzle-orm";
+import { canViewCourse, redactQuizAnswers, redactQuestionOptions } from "@flashcards/database/access";
+import { eq, sql, isNull, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getOptionalUser } from "@/lib/auth";
 
 export async function createCourse(data: {
   name: string;
@@ -581,5 +582,136 @@ export async function getCourseTreeChildren(courseId: number) {
       description: c.description, estimatedHours: c.estimated_hours,
       totalDecks: c.total_decks, dueCards: c.due_cards,
     })),
+  };
+}
+
+export async function getPublicCourse(publicId: string) {
+  const user = await getOptionalUser();
+  const db = getDb();
+
+  const course = db.select().from(courses)
+    .where(eq(courses.publicId, publicId))
+    .get();
+  if (!course) return null;
+  if (!canViewCourse(course, user?.userId)) return null;
+
+  const isOwner = !!user && course.userId === user.userId;
+
+  const children = db.select({
+    id: courses.id,
+    name: courses.name,
+    description: courses.description,
+    color: courses.color,
+    isActive: courses.isActive,
+    position: courses.position,
+    publicId: courses.publicId,
+    estimatedHours: courses.estimatedHours,
+    totalDecks: sql<number>`(SELECT COUNT(*) FROM course_deck WHERE course_deck.course_id = "course"."id")`,
+  }).from(courses)
+    .where(eq(courses.parentId, course.id))
+    .orderBy(courses.position, courses.name)
+    .all();
+
+  const courseDeckRows = db.select({
+    deckId: courseDecks.deckId,
+    position: courseDecks.position,
+    name: decks.name,
+    description: decks.description,
+    flashcardCount: sql<number>`(SELECT COUNT(*) FROM flashcard WHERE flashcard.deck_id = "deck"."id")`,
+  })
+    .from(courseDecks)
+    .innerJoin(decks, eq(courseDecks.deckId, decks.id))
+    .where(eq(courseDecks.courseId, course.id))
+    .orderBy(courseDecks.position, decks.name)
+    .all();
+
+  const steps = db.select({
+    id: courseSteps.id,
+    position: courseSteps.position,
+    stepType: courseSteps.stepType,
+    materialId: courseSteps.materialId,
+    quizId: courseSteps.quizId,
+    materialTitle: materials.title,
+    quizTitle: quizzes.title,
+  })
+    .from(courseSteps)
+    .leftJoin(materials, eq(courseSteps.materialId, materials.id))
+    .leftJoin(quizzes, eq(courseSteps.quizId, quizzes.id))
+    .where(eq(courseSteps.courseId, course.id))
+    .orderBy(courseSteps.position)
+    .all();
+
+  // Redact quiz answers for non-owners: fetch quiz questions for quiz steps
+  let redactedQuizInfo: Map<number, { questionCount: number }> | undefined;
+  if (!isOwner) {
+    const quizIds = steps.filter(s => s.quizId).map(s => s.quizId!);
+    if (quizIds.length > 0) {
+      const counts = db.all<{ quiz_id: number; count: number }>(
+        sql`SELECT quiz_id, COUNT(*) as count FROM quiz_question WHERE quiz_id IN (${sql.join(quizIds.map(id => sql`${id}`), sql`, `)}) GROUP BY quiz_id`
+      );
+      redactedQuizInfo = new Map(counts.map(c => [c.quiz_id, { questionCount: c.count }]));
+    }
+  }
+
+  return {
+    ...course,
+    isOwner,
+    children,
+    decks: courseDeckRows,
+    steps,
+    ...(redactedQuizInfo ? { quizInfo: Object.fromEntries(redactedQuizInfo) } : {}),
+  };
+}
+
+export async function getPublicCourses(page: number = 1, limit: number = 20) {
+  const db = getDb();
+  const offset = (page - 1) * limit;
+
+  const rows = db.select({
+    id: courses.id,
+    publicId: courses.publicId,
+    name: courses.name,
+    description: courses.description,
+    color: courses.color,
+    visibility: courses.visibility,
+    estimatedHours: courses.estimatedHours,
+    createdAt: courses.createdAt,
+    authorName: users.name,
+    authorEmail: users.email,
+    stepCount: sql<number>`(SELECT COUNT(*) FROM course_step WHERE course_step.course_id = "course"."id")`,
+  })
+    .from(courses)
+    .innerJoin(users, eq(courses.userId, users.id))
+    .where(and(
+      isNull(courses.parentId),
+      sql`${courses.visibility} IN ('public', 'forkable')`,
+    ))
+    .orderBy(sql`${courses.createdAt} DESC`)
+    .limit(limit)
+    .offset(offset)
+    .all();
+
+  const countResult = db.get<{ total: number }>(
+    sql`SELECT COUNT(*) as total FROM course WHERE parent_id IS NULL AND visibility IN ('public', 'forkable')`
+  );
+  const total = countResult?.total ?? 0;
+
+  return {
+    courses: rows.map(r => ({
+      id: r.id,
+      publicId: r.publicId,
+      name: r.name,
+      description: r.description,
+      color: r.color,
+      visibility: r.visibility,
+      estimatedHours: r.estimatedHours,
+      createdAt: r.createdAt,
+      authorName: r.authorName || r.authorEmail.split("@")[0],
+      stepCount: r.stepCount,
+    })),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
   };
 }
