@@ -148,6 +148,13 @@
       "when": 1774270264570,
       "tag": "0020_stale_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1774270354659,
+      "tag": "0021_square_banshee",
+      "breakpoints": true
     }
   ]
 }
