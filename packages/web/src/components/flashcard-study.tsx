@@ -266,7 +266,7 @@ export function FlashcardStudy({
               <Button onClick={() => router.push(courseId ? `/courses/${coursePublicId || courseId}` : `/decks/${deckId}`)}>
                 {courseId ? "Back to Course" : "Back to Deck"}
               </Button>
-              <Button variant="outline" onClick={() => router.push("/")}>
+              <Button variant="outline" onClick={() => router.push("/dashboard")}>
                 Back to Home
               </Button>
             </div>

@@ -25,7 +25,7 @@ export default async function QuizPage({ params }: QuizPageProps) {
       {/* Breadcrumbs */}
       {quiz.step && (
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground">Home</Link>
+          <Link href="/dashboard" className="hover:text-foreground">Home</Link>
           <span>/</span>
           <Link href={`/courses/${quiz.step.coursePublicId}`} className="hover:text-foreground">
             {quiz.step.courseName}

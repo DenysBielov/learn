@@ -49,7 +49,7 @@ export function EditCourseDialog({ course }: EditCourseDialogProps) {
     setIsLoading(true);
     try {
       await deleteCourse(course.id);
-      router.push("/");
+      router.push("/dashboard");
     } catch (error) {
       console.error("Failed to delete course:", error);
     } finally {

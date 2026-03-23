@@ -19,7 +19,7 @@ async function cleanupServiceWorker() {
 }
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/review", label: "Review", icon: RefreshCw },
   { href: "/sessions", label: "Sessions", icon: Clock },
   { href: "/stats", label: "Stats", icon: BarChart3 },

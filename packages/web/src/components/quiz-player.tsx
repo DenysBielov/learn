@@ -235,10 +235,10 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
           {session && <CompletionNotes sessionId={session.id} />}
 
           <div className="flex gap-3">
-            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${coursePublicId || courseId}` : '/')}>
+            <Button onClick={() => router.push(quizId ? `/quizzes/${quizId}` : courseId ? `/courses/${coursePublicId || courseId}` : '/dashboard')}>
               {quizId ? "Back to Quiz" : courseId ? "Back to Course" : "Back to Home"}
             </Button>
-            <Button variant="outline" onClick={() => router.push("/")}>
+            <Button variant="outline" onClick={() => router.push("/dashboard")}>
               Back to Home
             </Button>
           </div>

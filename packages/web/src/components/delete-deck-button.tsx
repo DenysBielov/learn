@@ -20,7 +20,7 @@ export function DeleteDeckButton({ deckId }: DeleteDeckButtonProps) {
     setIsDeleting(true);
     try {
       await deleteDeck(deckId);
-      router.push("/");
+      router.push("/dashboard");
     } catch (error) {
       console.error("Failed to delete deck:", error);
       setIsDeleting(false);

@@ -36,7 +36,7 @@ export default async function StudyPage({
             <CardTitle>Deck not found</CardTitle>
           </CardHeader>
           <CardContent>
-            <Link href="/">
+            <Link href="/dashboard">
               <Button>Back to Decks</Button>
             </Link>
           </CardContent>
