@@ -13,7 +13,8 @@
     "./dependencies": "./src/dependencies.ts",
     "./events": "./src/events.ts",
     "./access": "./src/access.ts",
-    "./fork": "./src/fork.ts"
+    "./fork": "./src/fork.ts",
+    "./encryption": "./src/encryption.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",
