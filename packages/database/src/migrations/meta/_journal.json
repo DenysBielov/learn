@@ -162,6 +162,13 @@
       "when": 1774270415288,
       "tag": "0022_small_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1774270500000,
+      "tag": "0023_data_migration",
+      "breakpoints": true
     }
   ]
 }
