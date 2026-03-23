@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { verifyToken, COOKIE_NAME } from "@/lib/auth";
+import { auth } from "@/lib/better-auth";
 import { getDb, events } from "@flashcards/database";
 import { and, gt, desc, sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
@@ -54,18 +54,15 @@ const POLL_INTERVAL_MS = 2000; // 2 seconds
 const HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds
 
 export async function GET(request: NextRequest) {
-  // Auth via cookie (SSE uses cookies, not Authorization header)
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token) {
+  // Auth via Better Auth session cookie
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const auth = verifyToken(token);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { userId } = auth;
+  const userId = Number(session.user.id);
 
   // Connection limit
   const currentConnections = connections.get(userId) ?? 0;
