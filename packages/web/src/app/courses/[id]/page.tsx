@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 import { SessionHistory } from "@/components/session-history";
 import { VisibilitySelect } from "@/components/visibility-select";
 import { GitBranch, BookOpen, Brain, FolderOpen, UserPlus } from "lucide-react";
+import { ForkCourseButton } from "@/components/fork-course-button";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -134,12 +135,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
       <div className="flex flex-wrap gap-3">
         {course.isAuthenticated ? (
           course.canFork && (
-            <Button asChild>
-              <Link href={`/courses/${publicId}/fork`}>
-                <GitBranch className="mr-2 h-4 w-4" />
-                Fork to my library
-              </Link>
-            </Button>
+            <ForkCourseButton publicId={publicId} />
           )
         ) : (
           <Button asChild>

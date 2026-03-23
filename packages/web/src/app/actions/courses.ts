@@ -17,6 +17,7 @@ import { cleanupDependenciesForCourse } from "@flashcards/database/dependencies"
 import { canViewCourse, canForkCourse, redactQuizAnswers, redactQuestionOptions } from "@flashcards/database/access";
 import { eq, sql, isNull, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAuth, getOptionalUser } from "@/lib/auth";
 
 export async function createCourse(data: {
@@ -697,6 +698,26 @@ export async function updateVisibility(courseId: number, visibility: "private" |
     db.update(courses).set({ visibility }).where(eq(courses.id, courseId)).run();
   });
   revalidatePath(`/courses/${courseId}`);
+}
+
+export async function forkCourseAction(publicId: string) {
+  const { userId, name } = await requireAuth();
+  const db = getDb();
+
+  const course = db.select().from(courses).where(eq(courses.publicId, publicId)).get();
+  if (!course) throw new Error("Course not found");
+
+  if (!canForkCourse(course, userId)) throw new Error("Cannot fork this course");
+
+  const { rateLimit } = await import("@/lib/rate-limit");
+  if (!rateLimit(`fork:${userId}`, 60 * 60 * 1000, 5)) throw new Error("Rate limit exceeded");
+
+  const { forkCourse } = await import("@flashcards/database/fork");
+  const result = writeTransaction(db, () => {
+    return forkCourse(db, course.id, userId, name || "Unknown");
+  });
+
+  redirect(`/courses/${result.newPublicId}`);
 }
 
 export async function getPublicCourses(page: number = 1, limit: number = 20, search?: string) {
