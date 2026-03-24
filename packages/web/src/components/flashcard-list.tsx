@@ -31,6 +31,7 @@ interface FlashcardListProps {
   selectable?: boolean;
   selectedIds?: Set<number>;
   onSelectionChange?: (id: number) => void;
+  readOnly?: boolean;
 }
 
 export function FlashcardList({
@@ -40,6 +41,7 @@ export function FlashcardList({
   selectable = false,
   selectedIds,
   onSelectionChange,
+  readOnly = false,
 }: FlashcardListProps) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -90,36 +92,42 @@ export function FlashcardList({
                     <div className="text-xs font-semibold text-muted-foreground mb-1">BACK</div>
                     <div className="text-sm"><RichContent content={card.back} /></div>
                   </div>
-                  {(cardTags.length > 0 || allTags.length > 0) && (
+                  {(cardTags.length > 0 || (!readOnly && allTags.length > 0)) && (
                     <div className="flex flex-wrap items-center gap-1 pt-1">
                       {cardTags.map((tag) => (
                         <TagBadge key={tag.id} tag={tag} />
                       ))}
-                      <TagPopover
-                        mode="single"
-                        allTags={allTags}
-                        assignedTagIds={cardTags.map((t) => t.id)}
-                        itemId={card.id}
-                        itemType="flashcard"
-                        deckId={deckId}
-                      />
+                      {!readOnly && (
+                        <TagPopover
+                          mode="single"
+                          allTags={allTags}
+                          assignedTagIds={cardTags.map((t) => t.id)}
+                          itemId={card.id}
+                          itemType="flashcard"
+                          deckId={deckId}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
-                <LearningMaterials
-                  materials={card.learningMaterials}
-                  flashcardId={card.id}
-                  editable
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(card.id)}
-                  disabled={deletingId === card.id}
-                  className="shrink-0"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {!readOnly && (
+                  <>
+                    <LearningMaterials
+                      materials={card.learningMaterials}
+                      flashcardId={card.id}
+                      editable
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(card.id)}
+                      disabled={deletingId === card.id}
+                      className="shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

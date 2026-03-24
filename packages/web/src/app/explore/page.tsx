@@ -91,10 +91,10 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               <Card className="h-full overflow-hidden transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
                 <div className="h-1.5" style={{ backgroundColor: course.color }} />
                 <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="truncate">{course.name}</CardTitle>
-                    <Badge variant={course.visibility === "forkable" ? "default" : "secondary"} className="shrink-0">
-                      {course.visibility}
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <CardTitle className="truncate" title={course.name}>{course.name}</CardTitle>
+                    <Badge variant="secondary" className="shrink-0">
+                      public
                     </Badge>
                   </div>
                   <CardDescription className="line-clamp-2">

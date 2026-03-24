@@ -20,8 +20,8 @@ export function CourseCard({ id, publicId, name, description, color, totalDecks,
       <Card className="h-full overflow-hidden transition-colors hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]">
         <div className="h-1.5" style={{ backgroundColor: color }} />
         <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="truncate">{name}</CardTitle>
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <CardTitle className="truncate" title={name}>{name}</CardTitle>
             <div className="flex items-center gap-1.5 shrink-0">
               {dueCards > 0 && (
                 <Badge variant="destructive" className="shrink-0">

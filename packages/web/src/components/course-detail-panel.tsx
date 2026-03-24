@@ -183,8 +183,8 @@ export function CourseDetailPanel({ item }: CourseDetailPanelProps) {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: `${item.color}20`, border: `1px solid ${item.color}40` }}>
-          <FolderOpen className="h-5 w-5" style={{ color: item.color }} />
+        <div className="h-10 w-10 rounded-[10px] bg-muted/50 border border-border flex items-center justify-center">
+          <FolderOpen className="h-5 w-5 text-muted-foreground" />
         </div>
         <div>
           <h2 className="text-lg font-semibold">{item.name}</h2>

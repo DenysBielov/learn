@@ -153,7 +153,7 @@ export function getDashboardCourseStats(
     )
     SELECT
       rd.root_id AS rootId,
-      COUNT(rd.deck_id) AS totalDecks,
+      COUNT(DISTINCT rd.deck_id) AS totalDecks,
       COUNT(CASE WHEN f.next_review_at <= unixepoch() THEN 1 END) AS dueCards,
       COALESCE(af.has_active, 0) AS hasActiveDescendant
     FROM root_decks rd

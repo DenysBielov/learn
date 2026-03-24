@@ -174,6 +174,7 @@ export function DeckPageClient({ deck, allTags, isPublicView }: DeckPageClientPr
           selectable={selectionMode}
           selectedIds={selectedFlashcardIds}
           onSelectionChange={toggleFlashcardSelection}
+          readOnly={isPublicView}
         />
       </div>
 

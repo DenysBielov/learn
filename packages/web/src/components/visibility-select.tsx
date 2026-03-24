@@ -39,13 +39,9 @@ export function VisibilitySelect({ courseId, visibility }: VisibilitySelectProps
     });
   }
 
-  const current = options.find(o => o.value === value);
-  const Icon = current?.icon ?? Lock;
-
   return (
     <Select value={value} onValueChange={handleChange} disabled={isPending}>
       <SelectTrigger size="sm" className="gap-1.5">
-        <Icon className="h-3.5 w-3.5" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

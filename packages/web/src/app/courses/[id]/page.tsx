@@ -163,8 +163,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
                 href={`/courses/${child.publicId}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--card-hover)] transition-colors"
               >
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${child.color}20`, border: `1px solid ${child.color}40` }}>
-                  <FolderOpen className="h-4 w-4" style={{ color: child.color }} />
+                <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border flex items-center justify-center">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{child.name}</div>

@@ -297,7 +297,9 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1 text-lg font-semibold leading-none tracking-tight">
-              <RichContent content={currentQuestion.question} />
+              <RichContent content={currentQuestion.type === "cloze"
+                ? currentQuestion.question.replace(/\{\{c\d+::([^}]*?)(?:::[^}]*)?\}\}/g, "______")
+                : currentQuestion.question} />
             </div>
             <Badge variant="outline" className="ml-4">
               {currentQuestion.type.replace("_", " ")}

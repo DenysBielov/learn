@@ -1,12 +1,10 @@
 import { getDb, closeDb } from "./index.js";
 import { users, account, apiTokens } from "./schema.js";
-import bcrypt from "bcrypt";
+import { hashPassword } from "better-auth/crypto";
 import readline from "node:readline/promises";
 import { stdin, stdout, env } from "node:process";
 import { randomBytes, createHash, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-
-const BCRYPT_ROUNDS = 10;
 
 function generateMcpToken(): { token: string; hash: string } {
   const token = randomBytes(32).toString("hex"); // 256 bits
@@ -92,7 +90,7 @@ async function main() {
     process.exit(1);
   }
 
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const passwordHash = await hashPassword(password);
   const { token, hash: mcpTokenHash } = generateMcpToken();
   const name = email.split("@")[0];
 

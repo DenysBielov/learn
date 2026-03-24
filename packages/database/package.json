@@ -26,13 +26,12 @@
     "migrate-journey": "tsx src/migrate-learning-journey.ts"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
+    "better-auth": "^1.5.6",
     "better-sqlite3": "^12.8.0",
     "drizzle-orm": "^0.45.1",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/better-sqlite3": "^7.6.0",
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.0",
