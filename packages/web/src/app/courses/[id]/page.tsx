@@ -114,6 +114,19 @@ export default async function CoursePage({ params }: CoursePageProps) {
     <>
     <PublicHeader />
     <div className="container mx-auto px-4 py-4 sm:p-6 max-w-4xl space-y-6">
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/explore" className="hover:text-foreground">Explore</Link>
+        {course.ancestors.map((a) => (
+          <span key={a.publicId} className="flex items-center gap-2">
+            <span>/</span>
+            <Link href={`/courses/${a.publicId}`} className="hover:text-foreground">{a.name}</Link>
+          </span>
+        ))}
+        <span>/</span>
+        <span className="text-foreground truncate">{course.name}</span>
+      </nav>
+
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 min-w-0">

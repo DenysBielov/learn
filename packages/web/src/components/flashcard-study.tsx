@@ -44,6 +44,7 @@ interface FlashcardStudyProps {
   courseId?: number;
   coursePublicId?: string;
   activeFilterTags?: ActiveFilterTag[];
+  readOnly?: boolean;
 }
 
 export function FlashcardStudy({
@@ -53,6 +54,7 @@ export function FlashcardStudy({
   courseId,
   coursePublicId,
   activeFilterTags,
+  readOnly = false,
 }: FlashcardStudyProps) {
   const router = useRouter();
   const { session, currentActivity, endActivity } = useActiveSession();
@@ -226,14 +228,14 @@ export function FlashcardStudy({
       <div className="max-w-4xl mx-auto pt-6">
         <Card>
           <CardHeader>
-            <CardTitle>Study Session Complete!</CardTitle>
+            <CardTitle>{readOnly ? "All Cards Reviewed!" : "Study Session Complete!"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div>
-              <p className="text-muted-foreground mb-4">
-                You reviewed {cards.length} card{cards.length !== 1 ? "s" : ""} in {deckName}.
-              </p>
+            <p className="text-muted-foreground">
+              You reviewed {cards.length} card{cards.length !== 1 ? "s" : ""} in {deckName}.
+            </p>
 
+            {!readOnly && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
                 {skippedCount > 0 && (
                   <div className="rounded-lg border bg-amber-500/10 p-4 text-center">
@@ -258,7 +260,7 @@ export function FlashcardStudy({
                   <div className="text-sm text-muted-foreground">Easy</div>
                 </div>
               </div>
-            </div>
+            )}
 
             {session && <CompletionNotes sessionId={session.id} />}
 
@@ -266,9 +268,11 @@ export function FlashcardStudy({
               <Button onClick={() => router.push(courseId ? `/courses/${coursePublicId || courseId}` : `/decks/${deckId}`)}>
                 {courseId ? "Back to Course" : "Back to Deck"}
               </Button>
-              <Button variant="outline" onClick={() => router.push("/dashboard")}>
-                Back to Home
-              </Button>
+              {!readOnly && (
+                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                  Back to Home
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -372,79 +376,102 @@ export function FlashcardStudy({
       )}
 
       {/* Flag buttons */}
-      {isFlipped && (
+      {!readOnly && isFlipped && (
         <FlagButtons flashcardId={currentCard.id} key={`flags-${currentCard.id}`} />
       )}
 
-      {/* Previous rating indicator */}
-      {results[currentIndex] && (
-        <div className="text-center text-sm text-muted-foreground">
-          Previously rated: <span className="font-medium capitalize">{results[currentIndex].rating}</span>
-        </div>
-      )}
+      {readOnly ? (
+        /* Read-only: simple Next button */
+        isFlipped && (
+          <Button
+            className="w-full"
+            onClick={() => {
+              if (currentIndex < cards.length - 1) {
+                setCurrentIndex(currentIndex + 1);
+                setIsFlipped(false);
+                setStartTime(Date.now());
+                scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                setCompleted(true);
+              }
+            }}
+          >
+            {currentIndex < cards.length - 1 ? "Next Card" : "Finish"}
+          </Button>
+        )
+      ) : (
+        <>
+          {/* Previous rating indicator */}
+          {results[currentIndex] && (
+            <div className="text-center text-sm text-muted-foreground">
+              Previously rated: <span className="font-medium capitalize">{results[currentIndex].rating}</span>
+            </div>
+          )}
 
-      {/* Rating buttons */}
-      {isFlipped && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Button
-            variant="destructive"
-            onClick={() => handleRating("again")}
-            disabled={isSubmitting}
-            className="flex flex-col gap-1 h-auto py-4"
-          >
-            <span className="text-lg font-bold">Again</span>
-            <span className="text-xs opacity-80">Press 1</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleRating("hard")}
-            disabled={isSubmitting}
-            className="flex flex-col gap-1 h-auto py-4 border-orange-500 text-orange-600 hover:bg-orange-500/10"
-          >
-            <span className="text-lg font-bold">Hard</span>
-            <span className="text-xs opacity-80">Press 2</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleRating("good")}
-            disabled={isSubmitting}
-            className="flex flex-col gap-1 h-auto py-4 border-blue-500 text-blue-600 hover:bg-blue-500/10"
-          >
-            <span className="text-lg font-bold">Good</span>
-            <span className="text-xs opacity-80">Press 3</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleRating("easy")}
-            disabled={isSubmitting}
-            className="flex flex-col gap-1 h-auto py-4 border-green-500 text-green-600 hover:bg-green-500/10"
-          >
-            <span className="text-lg font-bold">Easy</span>
-            <span className="text-xs opacity-80">Press 4</span>
-          </Button>
-        </div>
-      )}
+          {/* Rating buttons */}
+          {isFlipped && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Button
+                variant="destructive"
+                onClick={() => handleRating("again")}
+                disabled={isSubmitting}
+                className="flex flex-col gap-1 h-auto py-4"
+              >
+                <span className="text-lg font-bold">Again</span>
+                <span className="text-xs opacity-80">Press 1</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleRating("hard")}
+                disabled={isSubmitting}
+                className="flex flex-col gap-1 h-auto py-4 border-orange-500 text-orange-600 hover:bg-orange-500/10"
+              >
+                <span className="text-lg font-bold">Hard</span>
+                <span className="text-xs opacity-80">Press 2</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleRating("good")}
+                disabled={isSubmitting}
+                className="flex flex-col gap-1 h-auto py-4 border-blue-500 text-blue-600 hover:bg-blue-500/10"
+              >
+                <span className="text-lg font-bold">Good</span>
+                <span className="text-xs opacity-80">Press 3</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleRating("easy")}
+                disabled={isSubmitting}
+                className="flex flex-col gap-1 h-auto py-4 border-green-500 text-green-600 hover:bg-green-500/10"
+              >
+                <span className="text-lg font-bold">Easy</span>
+                <span className="text-xs opacity-80">Press 4</span>
+              </Button>
+            </div>
+          )}
 
-      {/* Skip button (before flipping) */}
-      {!isFlipped && !results[currentIndex] && (
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            disabled={isSubmitting || skipping}
-            className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-          >
-            <BookOpen className="mr-2 h-4 w-4" />
-            {skipping ? "Skipping..." : "Skip — I need to learn this first"}
-          </Button>
-        </div>
+          {/* Skip button (before flipping) */}
+          {!isFlipped && !results[currentIndex] && (
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={handleSkip}
+                disabled={isSubmitting || skipping}
+                className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                {skipping ? "Skipping..." : "Skip — I need to learn this first"}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Keyboard shortcuts hint */}
       <div className="text-center text-xs text-muted-foreground">
         {!isFlipped
           ? "Press Space to flip the card"
-          : "Rate your recall: 1 (Again) | 2 (Hard) | 3 (Good) | 4 (Easy)"}
+          : readOnly ? "Press Space for next card" : "Rate your recall: 1 (Again) | 2 (Hard) | 3 (Good) | 4 (Easy)"}
       </div>
 
       </div>

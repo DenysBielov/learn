@@ -54,6 +54,8 @@ export async function getDeck(id: number) {
       })
     : undefined;
 
+  let courseContext: { courseId: number; courseName: string; coursePublicId: string; courseColor: string } | null = null;
+
   if (!deck) {
     const courseCtx = isPublicDeck(db, id);
     if (!courseCtx) return null;
@@ -63,9 +65,10 @@ export async function getDeck(id: number) {
     });
     if (!deck) return null;
     isPublicView = true;
+    courseContext = courseCtx;
   }
 
-  return { ...deck, isPublicView };
+  return { ...deck, isPublicView, courseContext };
 }
 
 export async function deleteDeck(id: number) {

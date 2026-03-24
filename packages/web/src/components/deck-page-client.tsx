@@ -9,6 +9,7 @@ import { BulkActionBar } from "@/components/bulk-action-bar";
 import { CreateFlashcardDialog } from "@/components/create-flashcard-dialog";
 import { DeckStudyButton } from "@/components/deck-study-button";
 import { BookOpen, RotateCcw, CheckSquare } from "lucide-react";
+import Link from "next/link";
 import type { Tag } from "@/lib/tags";
 
 interface FlashcardTag {
@@ -117,7 +118,14 @@ export function DeckPageClient({ deck, allTags, isPublicView }: DeckPageClientPr
 
   return (
     <>
-      {!isPublicView && (
+      {isPublicView ? (
+        <Button asChild>
+          <Link href={`/study/${deck.id}`}>
+            <BookOpen className="mr-2 h-4 w-4" />
+            Study Flashcards
+          </Link>
+        </Button>
+      ) : (
         <div className="flex flex-wrap gap-3">
           <DeckStudyButton
             deckId={deck.id}

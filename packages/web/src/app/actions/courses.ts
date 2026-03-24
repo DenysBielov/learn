@@ -666,12 +666,26 @@ export async function getPublicCourse(publicId: string) {
     }
   }
 
+  // Build ancestor breadcrumbs for subcourses
+  const ancestors: { name: string; publicId: string }[] = [];
+  if (course.parentId) {
+    let current = db.select({ parentId: courses.parentId, name: courses.name, publicId: courses.publicId })
+      .from(courses).where(eq(courses.id, course.parentId)).get();
+    while (current) {
+      ancestors.unshift({ name: current.name, publicId: current.publicId });
+      if (!current.parentId) break;
+      current = db.select({ parentId: courses.parentId, name: courses.name, publicId: courses.publicId })
+        .from(courses).where(eq(courses.id, current.parentId)).get();
+    }
+  }
+
   return {
     ...course,
     isOwner,
     isAuthenticated: !!user,
     canFork: canForkCourse(course, user?.userId),
     authorName: author?.name || author?.email?.split("@")[0] || "Unknown",
+    ancestors,
     children,
     decks: courseDeckRows,
     steps,

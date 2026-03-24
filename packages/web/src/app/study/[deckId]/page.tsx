@@ -1,6 +1,7 @@
 import { getDueFlashcards, getAllFlashcards } from "@/app/actions/flashcards";
 import { getDeck } from "@/app/actions/decks";
 import { getTags } from "@/app/actions/tags";
+import { PublicHeader } from "@/components/public-header";
 import { FlashcardStudy } from "@/components/flashcard-study";
 import { TagBadge } from "@/components/tag-badge";
 import { parseTagIdsFromUrl } from "@/lib/tags";
@@ -108,11 +109,26 @@ export default async function StudyPage({
   }
 
   return (
-    <FlashcardStudy
-      deckId={deckId}
-      deckName={deck.name}
-      cards={cards}
-      activeFilterTags={activeFilterTags}
-    />
+    <>
+      {isPublicView && <PublicHeader />}
+      {isPublicView && deck.courseContext && (
+        <nav className="container mx-auto max-w-4xl px-4 pt-4 sm:px-6 flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/explore" className="hover:text-foreground">Explore</Link>
+          <span>/</span>
+          <Link href={`/courses/${deck.courseContext.coursePublicId}`} className="hover:text-foreground">
+            {deck.courseContext.courseName}
+          </Link>
+          <span>/</span>
+          <span className="text-foreground truncate">{deck.name}</span>
+        </nav>
+      )}
+      <FlashcardStudy
+        deckId={deckId}
+        deckName={deck.name}
+        cards={cards}
+        activeFilterTags={activeFilterTags}
+        readOnly={isPublicView}
+      />
+    </>
   );
 }
