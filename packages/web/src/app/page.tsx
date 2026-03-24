@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { getPublicCourses } from "@/app/actions/courses";
+import { PublicHeader } from "@/components/public-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Brain, Repeat, ArrowRight } from "lucide-react";
@@ -14,32 +15,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Navigation */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto max-w-6xl flex items-center justify-between px-4 h-16">
-          <span className="text-xl font-bold">Flashcards</span>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/explore"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Explore
-            </Link>
-            <Link
-              href="/login"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Hero */}
       <section className="container mx-auto max-w-6xl px-4 py-20 sm:py-28 text-center">

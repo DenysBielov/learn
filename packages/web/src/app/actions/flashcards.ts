@@ -7,7 +7,8 @@ import { createFlashcardSchema } from "@flashcards/database/validation";
 import { and, eq, inArray, isNull, isNotNull, desc, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { calculateSm2, type Sm2Rating } from "@/lib/sm2";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuthUser } from "@/lib/auth";
+import { isPublicDeck } from "@flashcards/database/access";
 import { getDescendantDeckIds } from "@flashcards/database/courses";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 
@@ -114,23 +115,35 @@ export async function getDueFlashcards(deckId?: number, tagIds?: number[]) {
 }
 
 export async function getAllFlashcards(deckId: number, tagIds?: number[]) {
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
   const validTagIds = tagIdsSchema.parse(tagIds);
   const db = getDb();
 
-  const tagFilter = validTagIds?.length ? sql` AND ${flashcards.id} IN (
-    SELECT ft.flashcard_id FROM flashcard_tag ft
-    JOIN tag t ON ft.tag_id = t.id
-    WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
-      AND t.user_id = ${userId}
-    GROUP BY ft.flashcard_id
-    HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
-  )` : sql``;
+  // Owner path
+  if (user) {
+    const tagFilter = validTagIds?.length ? sql` AND ${flashcards.id} IN (
+      SELECT ft.flashcard_id FROM flashcard_tag ft
+      JOIN tag t ON ft.tag_id = t.id
+      WHERE t.id IN (${sql.join(validTagIds.map(id => sql`${id}`), sql`,`)})
+        AND t.user_id = ${user.userId}
+      GROUP BY ft.flashcard_id
+      HAVING COUNT(DISTINCT ft.tag_id) = ${validTagIds.length}
+    )` : sql``;
+
+    const cards = db.select().from(flashcards)
+      .where(sql`${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${user.userId})${tagFilter}`)
+      .all();
+    if (cards.length > 0) return attachLearningMaterials(db, cards);
+  }
+
+  // Public fallback
+  const courseCtx = isPublicDeck(db, deckId);
+  if (!courseCtx) return [];
 
   const cards = db.select().from(flashcards)
-    .where(sql`${flashcards.deckId} = ${deckId} AND ${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})${tagFilter}`)
+    .where(eq(flashcards.deckId, deckId))
     .all();
-  return attachLearningMaterials(db, cards);
+  return cards;
 }
 
 export async function reviewFlashcard(
@@ -142,7 +155,9 @@ export async function reviewFlashcard(
 ) {
   if (sessionId !== null) z.number().int().positive().parse(sessionId);
   if (activityId !== null) z.number().int().positive().parse(activityId);
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
+  if (!user) return; // Public view — don't save progress
+  const userId = user.userId;
   const validatedRating = z.enum(["again", "hard", "good", "easy"]).parse(rating);
   const db = getDb();
   const correct = validatedRating !== "again";

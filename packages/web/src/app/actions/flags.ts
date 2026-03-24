@@ -3,7 +3,7 @@
 import { getDb, writeTransaction } from "@flashcards/database";
 import { cardFlags } from "@flashcards/database/schema";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuthUser } from "@/lib/auth";
 
 type FlagType = "requires_review" | "requires_more_study";
 
@@ -12,7 +12,9 @@ export async function toggleFlag(
   flashcardId?: number,
   questionId?: number,
 ) {
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
+  if (!user) return; // Public view — don't save flags
+  const userId = user.userId;
   if (!flashcardId && !questionId) throw new Error("Must specify flashcardId or questionId");
 
   const db = getDb();

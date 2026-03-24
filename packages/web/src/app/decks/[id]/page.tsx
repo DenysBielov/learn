@@ -1,6 +1,7 @@
 import { getDeck } from "@/app/actions/decks";
 import { getTags } from "@/app/actions/tags";
 import { DeckPageClient } from "@/components/deck-page-client";
+import { PublicHeader } from "@/components/public-header";
 import { notFound } from "next/navigation";
 import { DeleteDeckButton } from "@/components/delete-deck-button";
 import { SessionHistory } from "@/components/session-history";
@@ -17,27 +18,33 @@ export default async function DeckPage({ params }: DeckPageProps) {
     notFound();
   }
 
-  const [deck, allTags] = await Promise.all([getDeck(deckId), getTags()]);
+  const deck = await getDeck(deckId);
 
   if (!deck) {
     notFound();
   }
 
+  const { isPublicView } = deck;
+  const allTags = isPublicView ? [] : await getTags();
+
   return (
-    <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{deck.name}</h1>
-          <DeleteDeckButton deckId={deckId} />
+    <>
+      {isPublicView && <PublicHeader />}
+      <div className="container mx-auto px-4 py-4 sm:p-6 max-w-7xl space-y-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{deck.name}</h1>
+            {!isPublicView && <DeleteDeckButton deckId={deckId} />}
+          </div>
+          {deck.description && (
+            <p className="text-muted-foreground mt-2">{deck.description}</p>
+          )}
         </div>
-        {deck.description && (
-          <p className="text-muted-foreground mt-2">{deck.description}</p>
-        )}
+
+        <DeckPageClient deck={deck} allTags={allTags} isPublicView={isPublicView} />
+
+        {!isPublicView && <SessionHistory deckId={deckId} />}
       </div>
-
-      <DeckPageClient deck={deck} allTags={allTags} />
-
-      <SessionHistory deckId={deckId} />
-    </div>
+    </>
   );
 }

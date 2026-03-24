@@ -7,7 +7,8 @@ import { getNextStepPosition } from "@flashcards/database/courses";
 import { cleanupDependenciesForMaterial } from "@flashcards/database/dependencies";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuthUser } from "@/lib/auth";
+import { isPublicMaterial } from "@flashcards/database/access";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 
 function validateUrl(url: string): void {
@@ -120,12 +121,23 @@ export async function updateMaterialNotes(materialId: number, notes: string) {
 }
 
 export async function getMaterial(id: number) {
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
   const db = getDb();
+  let isPublicView = false;
 
-  const material = db.select().from(materials)
-    .where(and(eq(materials.id, id), eq(materials.userId, userId))).get();
-  if (!material) return null;
+  // Try owner lookup first
+  let material = user
+    ? db.select().from(materials).where(and(eq(materials.id, id), eq(materials.userId, user.userId))).get()
+    : null;
+
+  // Fall back to public visibility check
+  if (!material) {
+    const courseCtx = isPublicMaterial(db, id);
+    if (!courseCtx) return null;
+    material = db.select().from(materials).where(eq(materials.id, id)).get();
+    if (!material) return null;
+    isPublicView = true;
+  }
 
   // Get course context via course_step
   const step = db.select({
@@ -143,12 +155,12 @@ export async function getMaterial(id: number) {
 
   // Get completion state
   let isCompleted = false;
-  if (step) {
+  if (step && user && !isPublicView) {
     const progress = db.select({ isCompleted: stepProgress.isCompleted })
       .from(stepProgress)
       .where(and(
         eq(stepProgress.courseStepId, step.stepId),
-        eq(stepProgress.userId, userId),
+        eq(stepProgress.userId, user.userId),
       )).get();
     isCompleted = progress?.isCompleted ?? false;
   }
@@ -207,6 +219,7 @@ export async function getMaterial(id: number) {
 
   return {
     ...material,
+    isPublicView,
     step: step ? {
       id: step.stepId,
       courseId: step.courseId,

@@ -13,6 +13,7 @@ import { SessionHistory } from "@/components/session-history";
 import { VisibilitySelect } from "@/components/visibility-select";
 import { GitBranch, BookOpen, Brain, FolderOpen, UserPlus } from "lucide-react";
 import { ForkCourseButton } from "@/components/fork-course-button";
+import { PublicHeader } from "@/components/public-header";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -110,6 +111,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
   // Public view: read-only for non-owners
 
   return (
+    <>
+    <PublicHeader />
     <div className="container mx-auto px-4 py-4 sm:p-6 max-w-4xl space-y-6">
       {/* Header */}
       <div>
@@ -178,8 +181,10 @@ export default async function CoursePage({ params }: CoursePageProps) {
               const Icon = step.stepType === "material" ? BookOpen : Brain;
               const title = step.materialTitle ?? step.quizTitle ?? "Untitled";
               const quizInfo = !course.isOwner && step.quizId && course.quizInfo?.[step.quizId];
+              const href = step.materialId ? `/materials/${step.materialId}` : step.quizId ? `/quizzes/${step.quizId}` : null;
+              const Wrapper = href ? Link : "div" as any;
               return (
-                <div key={step.id} className="flex items-center gap-3 px-4 py-3">
+                <Wrapper key={step.id} href={href} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--card-hover)] transition-colors">
                   <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                     <Icon className={`h-4 w-4 ${step.stepType === "material" ? "text-blue-400" : "text-orange-400"}`} />
                   </div>
@@ -190,13 +195,13 @@ export default async function CoursePage({ params }: CoursePageProps) {
                       {quizInfo && ` \u00b7 ${quizInfo.questionCount} question${quizInfo.questionCount !== 1 ? "s" : ""}`}
                     </div>
                   </div>
-                </div>
+                </Wrapper>
               );
             })}
 
             {/* Decks */}
             {course.decks.map(deck => (
-              <div key={deck.deckId} className="flex items-center gap-3 px-4 py-3">
+              <Link key={deck.deckId} href={`/decks/${deck.deckId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--card-hover)] transition-colors">
                 <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                   <BookOpen className="h-4 w-4 text-emerald-400" />
                 </div>
@@ -206,7 +211,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
                     {deck.flashcardCount} card{deck.flashcardCount !== 1 ? "s" : ""}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -218,5 +223,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

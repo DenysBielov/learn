@@ -1,4 +1,5 @@
 import { getQuiz } from "@/app/actions/quizzes";
+import { PublicHeader } from "@/components/public-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { QuizStartButton } from "@/components/quiz-start-button";
@@ -20,113 +21,133 @@ export default async function QuizPage({ params }: QuizPageProps) {
   const quiz = await getQuiz(quizId);
   if (!quiz) notFound();
 
+  const { isPublicView } = quiz;
+
   return (
-    <div className="container mx-auto px-4 py-4 sm:p-6 max-w-4xl space-y-6">
-      {/* Breadcrumbs */}
-      {quiz.step && (
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground">Home</Link>
-          <span>/</span>
-          <Link href={`/courses/${quiz.step.coursePublicId}`} className="hover:text-foreground">
-            {quiz.step.courseName}
-          </Link>
-          <span>/</span>
-          <span className="text-foreground">{quiz.title}</span>
-        </nav>
-      )}
-
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
-          <Brain className="h-6 w-6 text-muted-foreground shrink-0" />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{quiz.title}</h1>
-        </div>
-        {quiz.description && (
-          <p className="text-muted-foreground mt-2 ml-9">{quiz.description}</p>
+    <>
+      {isPublicView && <PublicHeader />}
+      <div className="container mx-auto px-4 py-4 sm:p-6 max-w-4xl space-y-6">
+        {/* Breadcrumbs */}
+        {quiz.step && (
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href={isPublicView ? "/explore" : "/dashboard"} className="hover:text-foreground">
+              {isPublicView ? "Explore" : "Home"}
+            </Link>
+            <span>/</span>
+            <Link href={`/courses/${quiz.step.coursePublicId}`} className="hover:text-foreground">
+              {quiz.step.courseName}
+            </Link>
+            <span>/</span>
+            <span className="text-foreground">{quiz.title}</span>
+          </nav>
         )}
-      </div>
 
-      {/* Quiz Info */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold">{quiz.questions.length}</div>
-              <div className="text-sm text-muted-foreground">Questions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold">{quiz.pastScores.length}</div>
-              <div className="text-sm text-muted-foreground">Attempts</div>
-            </div>
+        {/* Header */}
+        <div>
+          <div className="flex items-center gap-3">
+            <Brain className="h-6 w-6 text-muted-foreground shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{quiz.title}</h1>
           </div>
-        </CardContent>
-      </Card>
+          {quiz.description && (
+            <p className="text-muted-foreground mt-2 ml-9">{quiz.description}</p>
+          )}
+        </div>
 
-      {/* Start Quiz */}
-      <QuizStartButton
-        quizId={quizId}
-        questionCount={quiz.questions.length}
-        courseId={quiz.step?.courseId}
-      />
+        {/* Quiz Info */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold">{quiz.questions.length}</div>
+                <div className="text-sm text-muted-foreground">Questions</div>
+              </div>
+              {!isPublicView && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold">{quiz.pastScores.length}</div>
+                  <div className="text-sm text-muted-foreground">Attempts</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Past Scores */}
-      {quiz.pastScores.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-3">Recent Attempts</h2>
-          <div className="space-y-2">
-            {quiz.pastScores.map((score) => (
-              <div key={score.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <Trophy className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium">
-                      {score.totalCount > 0
-                        ? `${Math.round((score.correctCount / score.totalCount) * 100)}%`
-                        : "—"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {score.correctCount}/{score.totalCount} correct
+        {/* Start Quiz */}
+        {isPublicView ? (
+          <Button size="lg" className="w-full" asChild>
+            <Link href={`/quizzes/${quizId}/play`}>
+              <Brain className="mr-2 h-5 w-5" />
+              Start Quiz
+            </Link>
+          </Button>
+        ) : (
+          <QuizStartButton
+            quizId={quizId}
+            questionCount={quiz.questions.length}
+            courseId={quiz.step?.courseId}
+          />
+        )}
+
+        {/* Past Scores */}
+        {quiz.pastScores.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold mb-3">Recent Attempts</h2>
+            <div className="space-y-2">
+              {quiz.pastScores.map((score) => (
+                <div key={score.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">
+                        {score.totalCount > 0
+                          ? `${Math.round((score.correctCount / score.totalCount) * 100)}%`
+                          : "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {score.correctCount}/{score.totalCount} correct
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {score.startedAt.toLocaleDateString()}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {score.startedAt.toLocaleDateString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* Completion & Navigation */}
-      {quiz.step && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
-          <StepCompleteButton
-            stepId={quiz.step.id}
-            isCompleted={quiz.step.isCompleted}
-          />
+        {/* Completion & Navigation */}
+        {quiz.step && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+            {!isPublicView && (
+              <StepCompleteButton
+                stepId={quiz.step.id}
+                isCompleted={quiz.step.isCompleted}
+              />
+            )}
 
-          <div className="flex gap-3">
-            {quiz.prevStep && (
-              <Button variant="outline" asChild>
-                <Link href={getStepUrl(quiz.prevStep)}>
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Previous
-                </Link>
-              </Button>
-            )}
-            {quiz.nextStep && (
-              <Button asChild>
-                <Link href={getStepUrl(quiz.nextStep)}>
-                  Next
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
-            )}
+            <div className="flex gap-3">
+              {quiz.prevStep && (
+                <Button variant="outline" asChild>
+                  <Link href={getStepUrl(quiz.prevStep)}>
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Previous
+                  </Link>
+                </Button>
+              )}
+              {quiz.nextStep && (
+                <Button asChild>
+                  <Link href={getStepUrl(quiz.nextStep)}>
+                    Next
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

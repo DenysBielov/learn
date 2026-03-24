@@ -31,9 +31,10 @@ interface DeckPageClientProps {
     flashcards: Flashcard[];
   };
   allTags: Tag[];
+  isPublicView?: boolean;
 }
 
-export function DeckPageClient({ deck, allTags }: DeckPageClientProps) {
+export function DeckPageClient({ deck, allTags, isPublicView }: DeckPageClientProps) {
   const [activeTagIds, setActiveTagIds] = useState<number[]>([]);
   const [selectedFlashcardIds, setSelectedFlashcardIds] = useState<Set<number>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
@@ -116,43 +117,47 @@ export function DeckPageClient({ deck, allTags }: DeckPageClientProps) {
 
   return (
     <>
-      <div className="flex flex-wrap gap-3">
-        <DeckStudyButton
-          deckId={deck.id}
-          studyUrl={`/study/${deck.id}${activeTagIds.length > 0 ? `?tags=${activeTagIds.join(",")}` : ""}`}
-          label="Study Due"
-          icon={<BookOpen className="mr-2 h-4 w-4" />}
-        />
-        <DeckStudyButton
-          deckId={deck.id}
-          studyUrl={`/study/${deck.id}?mode=all${tagParam}`}
-          label="Study All"
-          icon={<RotateCcw className="mr-2 h-4 w-4" />}
-          variant="outline"
-        />
-      </div>
+      {!isPublicView && (
+        <div className="flex flex-wrap gap-3">
+          <DeckStudyButton
+            deckId={deck.id}
+            studyUrl={`/study/${deck.id}${activeTagIds.length > 0 ? `?tags=${activeTagIds.join(",")}` : ""}`}
+            label="Study Due"
+            icon={<BookOpen className="mr-2 h-4 w-4" />}
+          />
+          <DeckStudyButton
+            deckId={deck.id}
+            studyUrl={`/study/${deck.id}?mode=all${tagParam}`}
+            label="Study All"
+            icon={<RotateCcw className="mr-2 h-4 w-4" />}
+            variant="outline"
+          />
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">
             Flashcards ({deck.flashcards.length})
           </h2>
-          <div className="flex gap-2">
-            <Button
-              variant={selectionMode ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setSelectionMode(!selectionMode);
-                if (selectionMode) {
-                  setSelectedFlashcardIds(new Set());
-                }
-              }}
-            >
-              <CheckSquare className="h-4 w-4 mr-1" />
-              Select
-            </Button>
-            <CreateFlashcardDialog deckId={deck.id} />
-          </div>
+          {!isPublicView && (
+            <div className="flex gap-2">
+              <Button
+                variant={selectionMode ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  if (selectionMode) {
+                    setSelectedFlashcardIds(new Set());
+                  }
+                }}
+              >
+                <CheckSquare className="h-4 w-4 mr-1" />
+                Select
+              </Button>
+              <CreateFlashcardDialog deckId={deck.id} />
+            </div>
+          )}
         </div>
         <TagFilter
           tags={flashcardFilterTags}

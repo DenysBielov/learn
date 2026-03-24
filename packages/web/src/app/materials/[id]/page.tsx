@@ -1,6 +1,7 @@
 import { getMaterial } from "@/app/actions/materials";
 import { MaterialContent } from "@/components/material-content";
 import { MaterialPanel } from "@/components/material-panel";
+import { PublicHeader } from "@/components/public-header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,12 +21,16 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
   const material = await getMaterial(materialId);
   if (!material) notFound();
 
+  const { isPublicView } = material;
+
   const materialContent = (
     <div className="space-y-6">
       {/* Breadcrumbs */}
       {material.step && (
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground">Home</Link>
+          <Link href={isPublicView ? "/explore" : "/dashboard"} className="hover:text-foreground">
+            {isPublicView ? "Explore" : "Home"}
+          </Link>
           <span>/</span>
           <Link href={`/courses/${material.step.coursePublicId}`} className="hover:text-foreground">
             {material.step.courseName}
@@ -46,10 +51,12 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
       {/* Completion & Navigation */}
       {material.step && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b">
-          <StepCompleteButton
-            stepId={material.step.id}
-            isCompleted={material.step.isCompleted}
-          />
+          {!isPublicView && (
+            <StepCompleteButton
+              stepId={material.step.id}
+              isCompleted={material.step.isCompleted}
+            />
+          )}
           <div className="flex gap-3">
             {material.prevStep && (
               <Button variant="outline" className="flex-1 sm:flex-initial" asChild>
@@ -82,16 +89,24 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
     </div>
   );
 
+  if (isPublicView) {
+    return (
+      <>
+        <PublicHeader />
+        <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 max-w-4xl">
+          {materialContent}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-var(--nav-height,56px))]">
-      {/* Main content — centered, scrollable */}
       <div className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 max-w-4xl">
           {materialContent}
         </div>
       </div>
-
-      {/* Right sidebar */}
       <MaterialPanel
         materialId={materialId}
         linkedDecks={material.linkedDecks}

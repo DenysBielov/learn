@@ -101,6 +101,7 @@ async function main() {
         color: "#8b5cf6",
         isActive: true,
         position: 0,
+        visibility: "forkable",
       })
       .returning({ id: courses.id }).all();
 
@@ -111,6 +112,7 @@ async function main() {
         name: "Linear Algebra",
         description: "Vectors, matrices, and transformations for ML",
         parentId: aiMlCourse.id,
+        rootCourseId: aiMlCourse.id,
         userId,
         color: "#3b82f6",
         isActive: true,
@@ -124,12 +126,32 @@ async function main() {
         name: "Probability & Statistics",
         description: "Probability theory and statistical methods for ML",
         parentId: aiMlCourse.id,
+        rootCourseId: aiMlCourse.id,
         userId,
         color: "#10b981",
         isActive: true,
         position: 1,
       })
       .returning({ id: courses.id }).all();
+
+    // Create quizzes early so questions can reference them
+    const [linAlgQuiz] = db
+      .insert(quizzes)
+      .values({
+        title: "Linear Algebra Fundamentals",
+        description: "Test your understanding of vectors and matrices",
+        userId,
+      })
+      .returning({ id: quizzes.id }).all();
+
+    const [probQuiz] = db
+      .insert(quizzes)
+      .values({
+        title: "Probability & Statistics Assessment",
+        description: "Comprehensive quiz on probability concepts and distributions",
+        userId,
+      })
+      .returning({ id: quizzes.id }).all();
 
     // 4. Create decks + content for Linear Algebra
     const [vectorsDeck] = db
@@ -164,7 +186,7 @@ async function main() {
     // Quiz questions for Vectors (multiple_choice)
     const [q1] = db
       .insert(quizQuestions)
-      .values({ deckId: vectorsDeck.id, type: "multiple_choice", question: "What is the result of the dot product of two orthogonal vectors?", explanation: "Orthogonal vectors meet at 90°, and cos(90°) = 0, so their dot product is always 0." })
+      .values({ deckId: vectorsDeck.id, quizId: linAlgQuiz.id, type: "multiple_choice", question: "What is the result of the dot product of two orthogonal vectors?", explanation: "Orthogonal vectors meet at 90°, and cos(90°) = 0, so their dot product is always 0." })
       .returning({ id: quizQuestions.id }).all();
 
     db.insert(questionOptions).values([
@@ -177,7 +199,7 @@ async function main() {
     // Quiz question (true_false)
     const [q2] = db
       .insert(quizQuestions)
-      .values({ deckId: vectorsDeck.id, type: "true_false", question: "The cross product of two vectors results in a scalar.", explanation: "The cross product results in a vector perpendicular to both input vectors, not a scalar." })
+      .values({ deckId: vectorsDeck.id, quizId: linAlgQuiz.id, type: "true_false", question: "The cross product of two vectors results in a scalar.", explanation: "The cross product results in a vector perpendicular to both input vectors, not a scalar." })
       .returning({ id: quizQuestions.id }).all();
 
     db.insert(questionOptions).values([
@@ -188,6 +210,7 @@ async function main() {
     // Quiz question (free_text) for Matrices
     db.insert(quizQuestions).values({
       deckId: matricesDeck.id,
+      quizId: linAlgQuiz.id,
       type: "free_text",
       question: "What is the term for a matrix where all entries below the main diagonal are zero?",
       correctAnswer: JSON.stringify(["upper triangular", "upper triangular matrix"]),
@@ -197,6 +220,7 @@ async function main() {
     // Quiz question (matching) for Vectors — 4 pairs
     db.insert(quizQuestions).values({
       deckId: vectorsDeck.id,
+      quizId: linAlgQuiz.id,
       type: "matching",
       question: "Match each vector operation to its result type:",
       correctAnswer: JSON.stringify([
@@ -211,6 +235,7 @@ async function main() {
     // Quiz question (matching) for Matrices — 5 pairs
     db.insert(quizQuestions).values({
       deckId: matricesDeck.id,
+      quizId: linAlgQuiz.id,
       type: "matching",
       question: "Match each matrix type to its defining property:",
       correctAnswer: JSON.stringify([
@@ -255,7 +280,7 @@ async function main() {
     // Quiz questions for Probability (multiple_choice)
     const [q3] = db
       .insert(quizQuestions)
-      .values({ deckId: probDeck.id, type: "multiple_choice", question: "If P(A) = 0.3 and P(B) = 0.5, and A and B are independent, what is P(A ∩ B)?", explanation: "For independent events, P(A∩B) = P(A) × P(B) = 0.3 × 0.5 = 0.15" })
+      .values({ deckId: probDeck.id, quizId: probQuiz.id, type: "multiple_choice", question: "If P(A) = 0.3 and P(B) = 0.5, and A and B are independent, what is P(A ∩ B)?", explanation: "For independent events, P(A∩B) = P(A) × P(B) = 0.3 × 0.5 = 0.15" })
       .returning({ id: quizQuestions.id }).all();
 
     db.insert(questionOptions).values([
@@ -268,7 +293,7 @@ async function main() {
     // Quiz question (true_false)
     const [q4] = db
       .insert(quizQuestions)
-      .values({ deckId: distDeck.id, type: "true_false", question: "The standard normal distribution has a mean of 0 and standard deviation of 1.", explanation: "By definition, the standard normal distribution (Z-distribution) has μ=0 and σ=1." })
+      .values({ deckId: distDeck.id, quizId: probQuiz.id, type: "true_false", question: "The standard normal distribution has a mean of 0 and standard deviation of 1.", explanation: "By definition, the standard normal distribution (Z-distribution) has μ=0 and σ=1." })
       .returning({ id: quizQuestions.id }).all();
 
     db.insert(questionOptions).values([
@@ -279,6 +304,7 @@ async function main() {
     // Quiz question (free_text) for Distributions
     db.insert(quizQuestions).values({
       deckId: distDeck.id,
+      quizId: probQuiz.id,
       type: "free_text",
       question: "What distribution models the number of events occurring in a fixed interval of time?",
       correctAnswer: JSON.stringify(["poisson", "poisson distribution"]),
@@ -288,6 +314,7 @@ async function main() {
     // Quiz question (matching) for Probability — 4 pairs
     db.insert(quizQuestions).values({
       deckId: probDeck.id,
+      quizId: probQuiz.id,
       type: "matching",
       question: "Match each probability concept to its formula:",
       correctAnswer: JSON.stringify([
@@ -302,6 +329,7 @@ async function main() {
     // Quiz question (matching) for Distributions — 7 pairs (long list test)
     db.insert(quizQuestions).values({
       deckId: distDeck.id,
+      quizId: probQuiz.id,
       type: "matching",
       question: "Match each probability distribution to its typical use case:",
       correctAnswer: JSON.stringify([
@@ -560,27 +588,7 @@ Despite a 99% accurate test, a positive result only means ~17% chance of disease
       { materialId: distributionsMaterial.id, deckId: distDeck.id },
     ]).run();
 
-    // 7. Create standalone quizzes
-    const [linAlgQuiz] = db
-      .insert(quizzes)
-      .values({
-        title: "Linear Algebra Fundamentals",
-        description: "Test your understanding of vectors and matrices",
-        userId,
-      })
-      .returning({ id: quizzes.id }).all();
-
-    const [probQuiz] = db
-      .insert(quizzes)
-      .values({
-        title: "Probability & Statistics Assessment",
-        description: "Comprehensive quiz on probability concepts and distributions",
-        userId,
-      })
-      .returning({ id: quizzes.id }).all();
-
-    // Link quiz questions to standalone quizzes
-    // Create new questions for the standalone quizzes
+    // 7. More quiz questions for standalone quizzes
     const [sq1] = db
       .insert(quizQuestions)
       .values({

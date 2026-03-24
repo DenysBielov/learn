@@ -6,7 +6,8 @@ import { createQuizSchema, updateQuizSchema } from "@flashcards/database/validat
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuthUser } from "@/lib/auth";
+import { isPublicQuiz } from "@flashcards/database/access";
 
 export async function createQuiz(courseId: number, data: {
   title: string;
@@ -82,20 +83,27 @@ export async function deleteQuiz(id: number) {
 }
 
 export async function getQuiz(id: number) {
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
   const db = getDb();
+  let isPublicView = false;
 
-  const quiz = db.select().from(quizzes)
-    .where(and(eq(quizzes.id, id), eq(quizzes.userId, userId))).get();
-  if (!quiz) return null;
+  let quiz = user
+    ? db.select().from(quizzes).where(and(eq(quizzes.id, id), eq(quizzes.userId, user.userId))).get()
+    : null;
 
-  // Get questions with options
+  if (!quiz) {
+    const courseCtx = isPublicQuiz(db, id);
+    if (!courseCtx) return null;
+    quiz = db.select().from(quizzes).where(eq(quizzes.id, id)).get();
+    if (!quiz) return null;
+    isPublicView = true;
+  }
+
   const questions = db.query.quizQuestions.findMany({
     where: eq(quizQuestions.quizId, id),
     with: { options: true },
   }).sync();
 
-  // Get course context via course_step
   const step = db.select({
     stepId: courseSteps.id,
     courseId: courseSteps.courseId,
@@ -109,20 +117,18 @@ export async function getQuiz(id: number) {
     .where(eq(courseSteps.quizId, id))
     .get();
 
-  // Get completion state
   let isCompleted = false;
-  if (step) {
+  if (step && user && !isPublicView) {
     const progress = db.select({ isCompleted: stepProgress.isCompleted })
       .from(stepProgress)
       .where(and(
         eq(stepProgress.courseStepId, step.stepId),
-        eq(stepProgress.userId, userId),
+        eq(stepProgress.userId, user.userId),
       )).get();
     isCompleted = progress?.isCompleted ?? false;
   }
 
-  // Get past scores
-  const pastScores = db.all<{
+  const pastScores = !isPublicView && user ? db.all<{
     id: number;
     started_at: number;
     completed_at: number | null;
@@ -138,13 +144,12 @@ export async function getQuiz(id: number) {
     FROM study_session s
     INNER JOIN session_activity sa ON sa.session_id = s.id AND sa.quiz_id = ${id}
     LEFT JOIN quiz_result qr ON qr.activity_id = sa.id
-    WHERE s.user_id = ${userId} AND s.completed_at IS NOT NULL
+    WHERE s.user_id = ${user.userId} AND s.completed_at IS NOT NULL
     GROUP BY s.id
     ORDER BY s.started_at DESC
     LIMIT 5
-  `);
+  `) : [];
 
-  // Get adjacent steps for navigation
   let prevStep: { id: number; stepType: string; materialId: number | null; quizId: number | null } | undefined;
   let nextStep: { id: number; stepType: string; materialId: number | null; quizId: number | null } | undefined;
 
@@ -168,6 +173,7 @@ export async function getQuiz(id: number) {
 
   return {
     ...quiz,
+    isPublicView,
     questions,
     step: step ? {
       id: step.stepId,

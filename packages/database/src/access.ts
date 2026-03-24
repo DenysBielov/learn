@@ -1,6 +1,7 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getDb } from "./index";
 import * as schema from "./schema";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
 type Course = typeof schema.courses.$inferSelect;
 
@@ -41,6 +42,79 @@ export function canForkCourse(course: Course, userId?: number): boolean {
   if (course.userId === userId) return false;
   const visibility = getEffectiveVisibility(course);
   return visibility === "forkable";
+}
+
+/**
+ * Check if a material belongs to a public/forkable course via course_step.
+ * Returns course context if public, null otherwise.
+ */
+export function isPublicMaterial(db: BetterSQLite3Database<typeof schema>, materialId: number) {
+  const row = db.select({
+    courseId: schema.courses.id,
+    courseName: schema.courses.name,
+    coursePublicId: schema.courses.publicId,
+    courseColor: schema.courses.color,
+  })
+    .from(schema.courseSteps)
+    .innerJoin(schema.courses, eq(schema.courseSteps.courseId, schema.courses.id))
+    .where(eq(schema.courseSteps.materialId, materialId))
+    .get();
+  if (!row) return null;
+
+  const course = db.select().from(schema.courses).where(eq(schema.courses.id, row.courseId)).get();
+  if (!course) return null;
+
+  const visibility = getEffectiveVisibility(course);
+  if (visibility !== "public" && visibility !== "forkable") return null;
+  return row;
+}
+
+/**
+ * Check if a quiz belongs to a public/forkable course via course_step.
+ */
+export function isPublicQuiz(db: BetterSQLite3Database<typeof schema>, quizId: number) {
+  const row = db.select({
+    courseId: schema.courses.id,
+    courseName: schema.courses.name,
+    coursePublicId: schema.courses.publicId,
+    courseColor: schema.courses.color,
+  })
+    .from(schema.courseSteps)
+    .innerJoin(schema.courses, eq(schema.courseSteps.courseId, schema.courses.id))
+    .where(eq(schema.courseSteps.quizId, quizId))
+    .get();
+  if (!row) return null;
+
+  const course = db.select().from(schema.courses).where(eq(schema.courses.id, row.courseId)).get();
+  if (!course) return null;
+
+  const visibility = getEffectiveVisibility(course);
+  if (visibility !== "public" && visibility !== "forkable") return null;
+  return row;
+}
+
+/**
+ * Check if a deck belongs to a public/forkable course via course_deck.
+ */
+export function isPublicDeck(db: BetterSQLite3Database<typeof schema>, deckId: number) {
+  const row = db.select({
+    courseId: schema.courses.id,
+    courseName: schema.courses.name,
+    coursePublicId: schema.courses.publicId,
+    courseColor: schema.courses.color,
+  })
+    .from(schema.courseDecks)
+    .innerJoin(schema.courses, eq(schema.courseDecks.courseId, schema.courses.id))
+    .where(eq(schema.courseDecks.deckId, deckId))
+    .get();
+  if (!row) return null;
+
+  const course = db.select().from(schema.courses).where(eq(schema.courses.id, row.courseId)).get();
+  if (!course) return null;
+
+  const visibility = getEffectiveVisibility(course);
+  if (visibility !== "public" && visibility !== "forkable") return null;
+  return row;
 }
 
 export function redactQuizAnswers<T extends Record<string, unknown>>(question: T): T {

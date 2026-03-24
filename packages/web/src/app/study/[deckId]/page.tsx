@@ -18,15 +18,9 @@ export default async function StudyPage({
   const { deckId: deckIdParam } = await params;
   const { mode, tags: tagsParam } = await searchParams;
   const deckId = Number(deckIdParam);
-  const studyAll = mode === "all";
   const tagIds = parseTagIdsFromUrl(tagsParam);
 
-  const [deck, cards] = await Promise.all([
-    getDeck(deckId),
-    studyAll
-      ? getAllFlashcards(deckId, tagIds.length > 0 ? tagIds : undefined)
-      : getDueFlashcards(deckId, tagIds.length > 0 ? tagIds : undefined),
-  ]);
+  const deck = await getDeck(deckId);
 
   if (!deck) {
     return (
@@ -45,16 +39,24 @@ export default async function StudyPage({
     );
   }
 
+  const { isPublicView } = deck;
+  const studyAll = mode === "all" || isPublicView;
+
+  const cards = await (
+    studyAll
+      ? getAllFlashcards(deckId, !isPublicView && tagIds.length > 0 ? tagIds : undefined)
+      : getDueFlashcards(deckId, tagIds.length > 0 ? tagIds : undefined)
+  );
+
   // Fetch active tag names for display
   let activeFilterTags: { id: number; name: string; color: string | null }[] = [];
-  if (tagIds.length > 0) {
+  if (tagIds.length > 0 && !isPublicView) {
     const allTags = await getTags();
     const tagIdSet = new Set(tagIds);
     activeFilterTags = allTags.filter((t) => tagIdSet.has(t.id));
   }
 
-  // Get total count without filter for comparison
-  const hasFilter = tagIds.length > 0;
+  const hasFilter = tagIds.length > 0 && !isPublicView;
 
   if (cards.length === 0) {
     return (

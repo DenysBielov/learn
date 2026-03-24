@@ -5,7 +5,8 @@ import { getDb, writeTransaction } from "@flashcards/database";
 import { quizQuestions, quizResults, studySessions, sessionActivities, quizzes } from "@flashcards/database/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getDescendantQuizIds } from "@flashcards/database/courses";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuthUser } from "@/lib/auth";
+import { isPublicQuiz } from "@flashcards/database/access";
 
 export async function submitQuizAnswer(
   sessionId: number | null,
@@ -17,7 +18,9 @@ export async function submitQuizAnswer(
 ) {
   if (sessionId !== null) z.number().int().positive().parse(sessionId);
   if (activityId !== null) z.number().int().positive().parse(activityId);
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
+  if (!user) return; // Public view — don't save progress
+  const userId = user.userId;
   const db = getDb();
 
   const question = db.select({ id: quizQuestions.id }).from(quizQuestions)
@@ -60,12 +63,22 @@ export async function submitQuizAnswer(
 }
 
 export async function getQuizQuestionsForQuiz(quizId: number) {
-  const { userId } = await requireAuth();
+  const user = await getAuthUser();
   const db = getDb();
 
-  const quiz = db.select({ id: quizzes.id }).from(quizzes)
-    .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, userId))).get();
-  if (!quiz) return [];
+  // Owner check
+  let hasAccess = false;
+  if (user) {
+    const quiz = db.select({ id: quizzes.id }).from(quizzes)
+      .where(and(eq(quizzes.id, quizId), eq(quizzes.userId, user.userId))).get();
+    if (quiz) hasAccess = true;
+  }
+
+  // Public fallback
+  if (!hasAccess) {
+    const courseCtx = isPublicQuiz(db, quizId);
+    if (!courseCtx) return [];
+  }
 
   return db.query.quizQuestions.findMany({
     where: eq(quizQuestions.quizId, quizId),

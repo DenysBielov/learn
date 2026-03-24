@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPublicCourses } from "@/app/actions/courses";
+import { PublicHeader } from "@/components/public-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,6 +20,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const { courses, total, totalPages } = await getPublicCourses(page, 20, search);
 
   return (
+    <>
+    <PublicHeader />
     <div className="container mx-auto max-w-5xl px-4 py-4 sm:p-6 space-y-6">
       {/* Header */}
       <div>
@@ -135,5 +138,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

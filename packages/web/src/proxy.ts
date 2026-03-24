@@ -9,9 +9,13 @@ import { NextRequest, NextResponse } from "next/server";
 const publicPaths = ["/", "/explore", "/login", "/register"];
 const publicExact = ["/api/notifications/send-daily"];
 
-// Course pages are conditionally public (checked at page level)
-function isCourseViewPath(pathname: string): boolean {
-  return /^\/courses\/[^/]+$/.test(pathname);
+// These paths are conditionally public — actual access control is at the page/action level
+function isConditionallyPublicPath(pathname: string): boolean {
+  return /^\/courses\/[^/]+$/.test(pathname)
+    || /^\/materials\/\d+$/.test(pathname)
+    || /^\/quizzes\/\d+(\/play)?$/.test(pathname)
+    || /^\/decks\/\d+$/.test(pathname)
+    || /^\/study\/\d+$/.test(pathname);
 }
 
 export function proxy(request: NextRequest) {
@@ -32,8 +36,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Course view pages (exact match only, not sub-paths like /study)
-  if (isCourseViewPath(pathname)) {
+  // Conditionally public pages (access checked at page/action level)
+  if (isConditionallyPublicPath(pathname)) {
     return NextResponse.next();
   }
 
