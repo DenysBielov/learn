@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Trailing slash convention: use startsWith(p + "/") to avoid matching
 // unintended prefixes (e.g., "/api/authorize" matching "/api/auth").
-const publicPaths = ["/", "/explore", "/login", "/register"];
+const publicPaths = ["/", "/explore", "/login", "/register", "/forgot-password", "/reset-password"];
 const publicExact = ["/api/notifications/send-daily"];
 
 // These paths are conditionally public — actual access control is at the page/action level
