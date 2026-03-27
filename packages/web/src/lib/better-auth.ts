@@ -32,12 +32,16 @@ export const auth = betterAuth({
         console.log(`Password reset URL for ${user.email}: ${url}`);
         return;
       }
-      void resend.emails.send({
-        from: "noreply@learn.bielov.com",
-        to: user.email,
-        subject: "Reset your password",
-        html: `<p>Click <a href="${url}">here</a> to reset your password.</p>`,
-      });
+      try {
+        await resend.emails.send({
+          from: "learn@bielov.dev",
+          to: user.email,
+          subject: "Reset your password",
+          html: `<p>Click <a href="${url}">here</a> to reset your password.</p>`,
+        });
+      } catch (error) {
+        console.error("Failed to send password reset email:", error);
+      }
     },
   },
   emailVerification: {
@@ -46,12 +50,16 @@ export const auth = betterAuth({
         console.log(`Verification URL for ${user.email}: ${url}`);
         return;
       }
-      await resend.emails.send({
-        from: "noreply@learn.bielov.com",
-        to: user.email,
-        subject: "Verify your email",
-        html: `<p>Click <a href="${url}">here</a> to verify your email.</p>`,
-      });
+      try {
+        await resend.emails.send({
+          from: "learn@bielov.dev",
+          to: user.email,
+          subject: "Verify your email",
+          html: `<p>Click <a href="${url}">here</a> to verify your email.</p>`,
+        });
+      } catch (error) {
+        console.error("Failed to send verification email:", error);
+      }
     },
   },
   socialProviders: {
