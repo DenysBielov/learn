@@ -87,19 +87,29 @@ function ClozeInput({ index, blank }: { index: number; blank: ClozeBlank }) {
   const isCorrect = ctx.blankResults[index];
   const width = Math.max(blank.answer.length + 1, 3);
 
+  // After check: show inline result instead of input
+  if (isChecked) {
+    if (isCorrect) {
+      return <span className="font-bold">{value}</span>;
+    }
+    return (
+      <span className="inline">
+        <span className="text-destructive line-through">{value || "(empty)"}</span>
+        {" "}
+        <span className="text-green-600 font-medium">{displayClozeAnswer(blank.answer)}</span>
+      </span>
+    );
+  }
+
   return (
     <input
       type="text"
       value={value}
       onChange={(e) => ctx.setUserInput(index, e.target.value)}
       onKeyDown={ctx.onKeyDown}
-      disabled={ctx.disabled || ctx.groupChecked}
+      disabled={ctx.disabled}
       placeholder={blank.hint ?? "..."}
-      className={cn(
-        "cloze-inline-input",
-        isChecked && isCorrect && "correct",
-        isChecked && !isCorrect && "incorrect",
-      )}
+      className="cloze-inline-input"
       style={{ width: `${width}ch` }}
       autoComplete="off"
       spellCheck={false}
@@ -271,16 +281,16 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
   const [blankResults, setBlankResults] = useState<Record<number, boolean>>({});
   const [checked, setChecked] = useState(false);
 
-  // All blanks shown at once — no group-by-group flow
+  // Always show placeholders — never reveal answer text via display text
   const displayText = useMemo(
-    () => buildClozeDisplayText(clozeText, blanks, checked ? new Set(getGroups(blanks)) : new Set()),
-    [clozeText, blanks, checked],
+    () => buildClozeDisplayText(clozeText, blanks, new Set()),
+    [clozeText, blanks],
   );
 
-  // Ref for blank lookup map — all blanks when not checked
+  // All blanks always in lookup map — ClozeInput handles checked state rendering
   const blankLookupMapRef = useRef<Map<number, ClozeBlank>>(new Map());
   blankLookupMapRef.current = new Map(
-    checked ? [] : blanks.map((b) => [b.index, b]),
+    blanks.map((b) => [b.index, b]),
   );
 
   const setUserInput = useCallback((index: number, value: string) => {
@@ -398,11 +408,6 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
     (b) => (userInputs[b.index] ?? "").trim() !== "",
   );
 
-  // Wrong blanks for correction display after check
-  const wrongBlanks = checked
-    ? blanks.filter((b) => blankResults[b.index] === false)
-    : [];
-
   if (!clozeData) {
     return (
       <div className="text-muted-foreground text-sm">
@@ -422,23 +427,6 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
           />
         </ClozeInputContext.Provider>
       </div>
-
-      {/* Correct answers for wrong blanks */}
-      {wrongBlanks.length > 0 && (
-        <div className="space-y-1">
-          {wrongBlanks.map((blank) => (
-            <div key={blank.index} className="text-sm text-muted-foreground">
-              <span className="text-destructive line-through">
-                {(userInputs[blank.index] ?? "").trim() || "(empty)"}
-              </span>
-              {" → "}
-              <span className="text-green-600 font-medium">
-                {displayClozeAnswer(blank.answer)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Check button */}
       {!disabled && !checked && (
