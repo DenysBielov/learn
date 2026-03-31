@@ -7,6 +7,7 @@ import {
 } from "@flashcards/database";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 import { emitEvent } from "@flashcards/database/events";
+import { getFeedbackCounts } from "./entity-feedback.js";
 
 export function registerFlashcardTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -70,7 +71,15 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
         query = query.where(sql`${flashcards.deckId} IN (SELECT id FROM deck WHERE user_id = ${userId})`);
       }
 
-      const result = query.all();
+      const rows = query.all();
+
+      const entityIds = rows.map((r) => r.id);
+      const feedbackMap = getFeedbackCounts(db, "flashcard", entityIds);
+      const withFeedback = rows.map((r) => ({
+        ...r,
+        feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+        feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+      }));
 
       if (tagName) {
         const tag = db.select().from(tags).where(and(eq(tags.name, tagName), eq(tags.userId, userId))).get();
@@ -82,11 +91,11 @@ export function registerFlashcardTools(server: McpServer, db: AppDatabase, userI
           .all()
           .map(r => r.flashcardId);
 
-        const filtered = result.filter(f => taggedIds.includes(f.id));
+        const filtered = withFeedback.filter(f => taggedIds.includes(f.id));
         return { content: [{ type: "text" as const, text: JSON.stringify(filtered, null, 2) }] };
       }
 
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(withFeedback, null, 2) }] };
     }
   );
 

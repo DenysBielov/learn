@@ -21,6 +21,7 @@ import {
   getNextStepPosition,
 } from "@flashcards/database/courses";
 import { emitEvent } from "@flashcards/database/events";
+import { getFeedbackCounts } from "./entity-feedback.js";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -100,7 +101,7 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
           ? and(eq(courses.parentId, parentId), eq(courses.userId, userId))
           : and(isNull(courses.parentId), eq(courses.userId, userId));
 
-      const result = db
+      const rows = db
         .select({
           id: courses.id,
           parentId: courses.parentId,
@@ -116,6 +117,14 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         .where(condition)
         .orderBy(courses.position, courses.name)
         .all();
+
+      const entityIds = rows.map((r) => r.id);
+      const feedbackMap = getFeedbackCounts(db, "course", entityIds);
+      const result = rows.map((r) => ({
+        ...r,
+        feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+        feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+      }));
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }
@@ -162,7 +171,15 @@ export function registerCourseTools(server: McpServer, db: AppDatabase, userId: 
         .orderBy(courseDecks.position)
         .all();
 
-      const result = { ...course, children, decks: linkedDecks };
+      const feedbackMap = getFeedbackCounts(db, "course", [courseId]);
+      const feedback = feedbackMap.get(courseId) ?? { positiveCount: 0, negativeCount: 0 };
+      const result = {
+        ...course,
+        feedbackPositive: feedback.positiveCount,
+        feedbackNegative: feedback.negativeCount,
+        children,
+        decks: linkedDecks,
+      };
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }

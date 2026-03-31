@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import { type AppDatabase, decks, flashcards, writeTransaction } from "@flashcards/database";
 import { emitEvent } from "@flashcards/database/events";
+import { getFeedbackCounts } from "./entity-feedback.js";
 
 export function registerDeckTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -23,7 +24,7 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
     "List all decks with flashcard counts",
     {},
     async () => {
-      const result = db
+      const rows = db
         .select({
           id: decks.id,
           name: decks.name,
@@ -34,6 +35,13 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
         .from(decks)
         .where(eq(decks.userId, userId))
         .all();
+      const entityIds = rows.map((r) => r.id);
+      const feedbackMap = getFeedbackCounts(db, "deck", entityIds);
+      const result = rows.map((r) => ({
+        ...r,
+        feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+        feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+      }));
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }
   );
@@ -52,7 +60,14 @@ export function registerDeckTools(server: McpServer, db: AppDatabase, userId: nu
       if (!deck) {
         return { content: [{ type: "text" as const, text: `Deck ${deckId} not found` }], isError: true };
       }
-      return { content: [{ type: "text" as const, text: JSON.stringify(deck, null, 2) }] };
+      const feedbackMap = getFeedbackCounts(db, "deck", [deckId]);
+      const feedback = feedbackMap.get(deckId) ?? { positiveCount: 0, negativeCount: 0 };
+      const result = {
+        ...deck,
+        feedbackPositive: feedback.positiveCount,
+        feedbackNegative: feedback.negativeCount,
+      };
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }
   );
 

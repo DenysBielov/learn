@@ -7,6 +7,7 @@ import {
 } from "@flashcards/database";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 import { emitEvent } from "@flashcards/database/events";
+import { getFeedbackCounts } from "./entity-feedback.js";
 
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -26,10 +27,18 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
       const whereClause = and(...conditions);
 
-      const result = await db.query.quizQuestions.findMany({
+      const rows = await db.query.quizQuestions.findMany({
         where: whereClause,
         with: { options: true },
       });
+
+      const entityIds = rows.map((r) => r.id);
+      const feedbackMap = getFeedbackCounts(db, "question", entityIds);
+      const result = rows.map((r) => ({
+        ...r,
+        feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+        feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+      }));
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }

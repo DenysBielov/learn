@@ -11,6 +11,7 @@ import {
 import { getNextStepPosition } from "@flashcards/database/courses";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 import { emitEvent } from "@flashcards/database/events";
+import { getFeedbackCounts } from "./entity-feedback.js";
 
 function validateUrl(url: string): void {
   const parsed = new URL(url);
@@ -146,7 +147,7 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
     },
     async ({ courseId }) => {
       if (courseId) {
-        const result = db.select({
+        const rows = db.select({
           id: materials.id,
           title: materials.title,
           hasContent: sql<boolean>`${materials.content} IS NOT NULL`,
@@ -159,10 +160,17 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
           .where(and(eq(courseSteps.courseId, courseId), eq(materials.userId, userId)))
           .orderBy(courseSteps.position)
           .all();
+        const entityIds = rows.map((r) => r.id);
+        const feedbackMap = getFeedbackCounts(db, "material", entityIds);
+        const result = rows.map((r) => ({
+          ...r,
+          feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+          feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+        }));
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
 
-      const result = db.select({
+      const rows = db.select({
         id: materials.id,
         title: materials.title,
         hasContent: sql<boolean>`${materials.content} IS NOT NULL`,
@@ -172,6 +180,14 @@ export function registerMaterialTools(server: McpServer, db: AppDatabase, userId
         .from(materials)
         .where(eq(materials.userId, userId))
         .all();
+
+      const entityIds = rows.map((r) => r.id);
+      const feedbackMap = getFeedbackCounts(db, "material", entityIds);
+      const result = rows.map((r) => ({
+        ...r,
+        feedbackPositive: feedbackMap.get(r.id)?.positiveCount ?? 0,
+        feedbackNegative: feedbackMap.get(r.id)?.negativeCount ?? 0,
+      }));
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }
