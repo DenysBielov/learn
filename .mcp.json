@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "learn-local": {
+      "type": "http",
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "Authorization": "Bearer 0776c7ca7d392c8152f107c94e0ebfd63a762636afee5a75eff12ec02b2e3b63"
+      }
+    }
+  }
+}

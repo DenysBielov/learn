@@ -2,13 +2,63 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, Brain, Check, FileText, Timer, X } from "lucide-react";
+import { BookOpen, Brain, Check, FileText, GripHorizontal, Timer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActiveSession } from "@/components/active-session-provider";
 import { DiscardSessionDialog } from "@/components/discard-session-dialog";
 import { StepCompleteButton } from "@/components/step-complete-button";
 import { getSessionFeedData, type FeedActivity, type JourneyStep } from "@/app/actions/sessions";
 import { parseStudyRoute } from "@/lib/route-utils";
+
+// ---------------------------------------------------------------------------
+// Drag hook — allows dragging the widget around the viewport, clamped to edges
+// ---------------------------------------------------------------------------
+function useDraggable(initialPos: { x: number; y: number }) {
+  const [position, setPosition] = useState(initialPos);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  const clamp = useCallback((x: number, y: number) => {
+    const el = elementRef.current;
+    const w = el?.offsetWidth ?? 200;
+    const h = el?.offsetHeight ?? 44;
+    return {
+      x: Math.max(0, Math.min(window.innerWidth - w, x)),
+      y: Math.max(0, Math.min(window.innerHeight - h, y)),
+    };
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: position.x, posY: position.y };
+    setIsDragging(false);
+  }, [position]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragStart.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    if (!isDragging && Math.abs(dx) + Math.abs(dy) > 4) {
+      setIsDragging(true);
+    }
+    setPosition(clamp(dragStart.current.posX + dx, dragStart.current.posY + dy));
+  }, [isDragging, clamp]);
+
+  const handlePointerUp = useCallback(() => {
+    dragStart.current = null;
+    setTimeout(() => setIsDragging(false), 0);
+  }, []);
+
+  // Re-clamp when element size changes (e.g. collapsed ↔ expanded)
+  const reclamp = useCallback(() => {
+    setPosition((prev) => clamp(prev.x, prev.y));
+  }, [clamp]);
+
+  return { position, isDragging, elementRef, handlePointerDown, handlePointerMove, handlePointerUp, reclamp };
+}
 
 function formatElapsed(ms: number) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -101,8 +151,12 @@ export function SessionWidget() {
   const [feedData, setFeedData] = useState<{ activities: FeedActivity[]; journey: JourneyStep[] | null } | null>(null);
   const [isEnding, setIsEnding] = useState(false);
 
-  const panelRef = useRef<HTMLDivElement>(null);
-  const barRef = useRef<HTMLButtonElement>(null);
+  // Default position: above the feedback button (bottom-6 = 24px, button ~44px, gap 8px)
+  const [defaultPos] = useState(() => {
+    if (typeof window === "undefined") return { x: 0, y: 0 };
+    return { x: window.innerWidth - 340, y: window.innerHeight - 76 - 44 };
+  });
+  const { position, isDragging, elementRef, handlePointerDown, handlePointerMove, handlePointerUp, reclamp } = useDraggable(defaultPos);
 
   // Timer
   useEffect(() => {
@@ -146,20 +200,24 @@ export function SessionWidget() {
     return () => window.removeEventListener("step-complete-changed", handler);
   }, [fetchFeed]);
 
-  // Click-outside dismiss
+  // Click-outside dismiss — ignore clicks inside dialogs/overlays
   useEffect(() => {
     if (!isOpen) return;
     function handleMouseDown(e: MouseEvent) {
-      if (
-        panelRef.current && !panelRef.current.contains(e.target as Node) &&
-        barRef.current && !barRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as HTMLElement;
+      if (elementRef.current && !elementRef.current.contains(target) && !target.closest("[role='alertdialog'], [role='dialog'], [data-radix-portal]")) {
         setIsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, [isOpen]);
+  }, [isOpen, elementRef]);
+
+  // Re-clamp position when toggling between collapsed/expanded
+  useEffect(() => {
+    // Wait a frame for the DOM to update with new dimensions
+    requestAnimationFrame(reclamp);
+  }, [isOpen, reclamp]);
 
   async function handleEnd() {
     setIsEnding(true);
@@ -261,16 +319,23 @@ export function SessionWidget() {
   // Inline complete button: on current page's incomplete journey step
   const currentPageStep = feedItems.find(i => i.isCurrentPage && i.stepId && !i.isCompleted);
 
-  // Expanded panel
+  // Expanded panel — draggable by header
   if (isOpen) {
     return (
       <div
-        ref={panelRef}
-        className="fixed right-4 bottom-20 md:bottom-6 z-50 flex flex-col max-w-[340px] w-[calc(100vw-2rem)] max-h-[60dvh] bg-card border rounded-xl shadow-lg motion-safe:transition-[transform,opacity] motion-safe:duration-200 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4"
+        ref={elementRef}
+        className="fixed z-50 flex flex-col max-w-[340px] w-[calc(100vw-2rem)] max-h-[60dvh] bg-card border rounded-xl shadow-lg"
+        style={{ left: position.x, top: position.y }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+        {/* Header — drag handle */}
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className={`flex items-center justify-between px-4 py-3 border-b flex-shrink-0 select-none touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        >
           <div className="flex items-center gap-2 min-w-0">
+            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
             <h3 className="text-sm font-semibold truncate">
               {session.title || "Study Session"}
@@ -357,13 +422,20 @@ export function SessionWidget() {
     );
   }
 
-  // Collapsed bar
+  // Collapsed bar — draggable
   return (
-    <button
-      ref={barRef}
-      onClick={() => setIsOpen(!isOpen)}
-      className="fixed right-4 bottom-20 md:bottom-6 z-50 flex items-center gap-2 bg-card border rounded-xl px-3 shadow-lg hover:shadow-xl transition-shadow max-w-[calc(100vw-2rem)] min-h-[44px] overflow-hidden group cursor-pointer"
+    <div
+      ref={elementRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onClick={() => { if (!isDragging) setIsOpen(!isOpen); }}
+      className={`fixed z-50 flex items-center gap-2 bg-card border rounded-xl px-3 shadow-lg hover:shadow-xl transition-shadow max-w-[calc(100vw-2rem)] min-h-[44px] overflow-hidden group cursor-grab select-none touch-none ${isDragging ? "cursor-grabbing shadow-xl" : ""}`}
+      style={{ left: position.x, top: position.y }}
     >
+      {/* Drag handle */}
+      <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+
       {/* Progress line */}
       <div
         className="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-500"
@@ -402,7 +474,7 @@ export function SessionWidget() {
           />
         </span>
       )}
-    </button>
+    </div>
   );
 }
 

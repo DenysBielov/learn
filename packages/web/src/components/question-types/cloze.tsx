@@ -81,23 +81,8 @@ function ClozeInput({ index, blank }: { index: number; blank: ClozeBlank }) {
   const ctx = useContext(ClozeInputContext);
   if (!ctx) return null;
 
-  const isFuture = blank.group !== ctx.activeGroup;
-
-  if (isFuture) {
-    const width = Math.max(blank.answer.length + 1, 3);
-    return (
-      <input
-        type="text"
-        disabled
-        tabIndex={-1}
-        className="cloze-inline-input future"
-        style={{ width: `${width}ch` }}
-      />
-    );
-  }
-
   const value = ctx.userInputs[index] ?? "";
-  const checked =
+  const isChecked =
     ctx.groupChecked && ctx.blankResults[index] !== undefined;
   const isCorrect = ctx.blankResults[index];
   const width = Math.max(blank.answer.length + 1, 3);
@@ -112,8 +97,8 @@ function ClozeInput({ index, blank }: { index: number; blank: ClozeBlank }) {
       placeholder={blank.hint ?? "..."}
       className={cn(
         "cloze-inline-input",
-        checked && isCorrect && "correct",
-        checked && !isCorrect && "incorrect",
+        isChecked && isCorrect && "correct",
+        isChecked && !isCorrect && "incorrect",
       )}
       style={{ width: `${width}ch` }}
       autoComplete="off"
@@ -222,6 +207,9 @@ function buildClozeDisplayText(
   blanks: ClozeBlank[],
   checkedGroups: Set<number>,
 ): string {
+  // Strip backtick code spans wrapping cloze markers — they prevent KaTeX from rendering
+  text = text.replace(/`(\{\{c\d+::[^}]*?(?:::[^}]*)?\}\})`/g, "$1");
+
   const hasMath = text.includes("$");
 
   if (!hasMath) {
@@ -278,92 +266,76 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
   const clozeText = clozeData?.text ?? "";
 
   const blanks = useMemo(() => parseClozeText(clozeText), [clozeText]);
-  const groups = useMemo(() => getGroups(blanks), [blanks]);
 
-  const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
   const [userInputs, setUserInputs] = useState<Record<number, string>>({});
-  const [checkedGroups, setCheckedGroups] = useState<Set<number>>(new Set());
-  const [blankResults, setBlankResults] = useState<Record<number, boolean>>(
-    {},
-  );
-  const [allGroupsDone, setAllGroupsDone] = useState(false);
-  const [groupChecked, setGroupChecked] = useState(false);
+  const [blankResults, setBlankResults] = useState<Record<number, boolean>>({});
+  const [checked, setChecked] = useState(false);
 
-  const activeGroup = groups[currentGroupIdx] ?? 1;
-  const activeBlanks = useMemo(
-    () => blanks.filter((b) => b.group === activeGroup),
-    [blanks, activeGroup],
-  );
-
-  // Display text — memoized on group state, NOT userInputs
+  // All blanks shown at once — no group-by-group flow
   const displayText = useMemo(
-    () => buildClozeDisplayText(clozeText, blanks, checkedGroups),
-    [clozeText, blanks, checkedGroups],
+    () => buildClozeDisplayText(clozeText, blanks, checked ? new Set(getGroups(blanks)) : new Set()),
+    [clozeText, blanks, checked],
   );
 
-  // Ref for blank lookup map — includes all non-checked blanks (active + future)
+  // Ref for blank lookup map — all blanks when not checked
   const blankLookupMapRef = useRef<Map<number, ClozeBlank>>(new Map());
   blankLookupMapRef.current = new Map(
-    blanks.filter((b) => !checkedGroups.has(b.group)).map((b) => [b.index, b]),
+    checked ? [] : blanks.map((b) => [b.index, b]),
   );
 
-  // Stable input handler
   const setUserInput = useCallback((index: number, value: string) => {
     setUserInputs((prev) => ({ ...prev, [index]: value }));
   }, []);
 
-  const computeCurrentGroupResults = (): Record<number, boolean> => {
-    const newResults: Record<number, boolean> = { ...blankResults };
-    for (const blank of activeBlanks) {
-      const userVal = normalizeClozeAnswer((userInputs[blank.index] ?? ""));
+  const handleCheck = () => {
+    const results: Record<number, boolean> = {};
+    for (const blank of blanks) {
+      const userVal = normalizeClozeAnswer(userInputs[blank.index] ?? "");
       const correctVal = normalizeClozeAnswer(blank.answer);
-      newResults[blank.index] = userVal === correctVal;
+      results[blank.index] = userVal === correctVal;
     }
-    return newResults;
+    setBlankResults(results);
+    setChecked(true);
+
+    const allCorrect = blanks.every((b) => results[b.index] === true);
+    const userAnswer = blanks
+      .map((b) => `c${b.group}: ${(userInputs[b.index] ?? "").trim() || "(empty)"}`)
+      .join(", ");
+    onAnswer(allCorrect, userAnswer);
   };
 
-  const handleCheckGroup = () => {
-    const newResults = computeCurrentGroupResults();
-    setBlankResults(newResults);
-    setGroupChecked(true);
-    setCheckedGroups((prev) => new Set([...prev, activeGroup]));
-  };
-
-  const handleNextGroup = () => {
-    const nextIdx = currentGroupIdx + 1;
-
-    if (nextIdx >= groups.length) {
-      const finalResults = computeCurrentGroupResults();
-      setAllGroupsDone(true);
-      const allCorrect = blanks.every(
-        (b) => finalResults[b.index] === true,
-      );
-      const userAnswer = blanks
-        .map(
-          (b) =>
-            `c${b.group}: ${(userInputs[b.index] ?? "").trim() || "(empty)"}`,
-        )
-        .join(", ");
-      onAnswer(allCorrect, userAnswer);
-    } else {
-      setCurrentGroupIdx(nextIdx);
-      setGroupChecked(false);
-    }
-  };
-
-  // Ref-based key handler to avoid stale closures in context
+  // Key handler: Enter/Tab navigate between inputs, Enter on last checks
   const handleKeyDownRef = useRef<
     (e: React.KeyboardEvent<HTMLInputElement>) => void
   >(() => {});
   handleKeyDownRef.current = (
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if (e.key === "Enter" && !disabled && !groupChecked) {
-      const allFilled = activeBlanks.every(
-        (b) => (userInputs[b.index] ?? "").trim() !== "",
-      );
-      if (allFilled) {
-        handleCheckGroup();
+    if (disabled || checked) return;
+
+    if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+      // Find current blank index from the input's parent span id
+      const inputEl = e.target as HTMLInputElement;
+      const clozeSpan = inputEl.closest("[id^='cloze-']");
+      const currentIndex = clozeSpan ? Number(clozeSpan.id.replace("cloze-", "")) : -1;
+      const currentPos = blanks.findIndex((b) => b.index === currentIndex);
+
+      if (currentPos >= 0 && currentPos < blanks.length - 1) {
+        // Not last blank → focus next input
+        e.preventDefault();
+        const nextBlank = blanks[currentPos + 1];
+        const nextSpan = document.getElementById(`cloze-${nextBlank.index}`);
+        const nextInput = nextSpan?.querySelector("input");
+        nextInput?.focus();
+      } else if (currentPos === blanks.length - 1) {
+        // Last blank → check if all filled
+        e.preventDefault();
+        const allFilled = blanks.every(
+          (b) => (userInputs[b.index] ?? "").trim() !== "",
+        );
+        if (allFilled) {
+          handleCheck();
+        }
       }
     }
   };
@@ -405,31 +377,30 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
       userInputs,
       setUserInput,
       blankResults,
-      groupChecked,
+      groupChecked: checked,
       disabled,
-      activeBlanks,
-      activeGroup,
+      activeBlanks: blanks,
+      activeGroup: 0, // all blanks active
       onKeyDown: stableKeyDown,
     }),
     [
       userInputs,
       setUserInput,
       blankResults,
-      groupChecked,
+      checked,
       disabled,
-      activeBlanks,
-      activeGroup,
+      blanks,
       stableKeyDown,
     ],
   );
 
-  const allActiveFilled = activeBlanks.every(
+  const allFilled = blanks.every(
     (b) => (userInputs[b.index] ?? "").trim() !== "",
   );
 
   // Wrong blanks for correction display after check
-  const wrongBlanks = groupChecked
-    ? activeBlanks.filter((b) => blankResults[b.index] === false)
+  const wrongBlanks = checked
+    ? blanks.filter((b) => blankResults[b.index] === false)
     : [];
 
   if (!clozeData) {
@@ -442,13 +413,6 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
 
   return (
     <div className="space-y-4">
-      {/* Group progress */}
-      {groups.length > 1 && (
-        <p className="text-muted-foreground text-sm">
-          Group {currentGroupIdx + 1} of {groups.length}
-        </p>
-      )}
-
       {/* Rendered cloze text with inline inputs */}
       <div className="rounded-lg border p-4 leading-relaxed text-base">
         <ClozeInputContext.Provider value={ctxValue}>
@@ -476,27 +440,15 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
         </div>
       )}
 
-      {/* Action buttons */}
-      {!disabled && !allGroupsDone && (
-        <>
-          {!groupChecked && (
-            <Button
-              onClick={handleCheckGroup}
-              disabled={!allActiveFilled}
-              className="w-full"
-            >
-              Check Answers
-            </Button>
-          )}
-
-          {groupChecked && (
-            <Button onClick={handleNextGroup} className="w-full">
-              {currentGroupIdx + 1 < groups.length
-                ? "Next Group"
-                : "Submit"}
-            </Button>
-          )}
-        </>
+      {/* Check button */}
+      {!disabled && !checked && (
+        <Button
+          onClick={handleCheck}
+          disabled={!allFilled}
+          className="w-full"
+        >
+          Check Answers
+        </Button>
       )}
     </div>
   );

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RichContent } from "@/components/rich-content";
-import { StudyStartModal, startActivityAndNavigate } from "@/components/study-start-modal";
+import { startActivityAndNavigate } from "@/components/study-start-modal";
 import { useActiveSession } from "@/components/active-session-provider";
-import { BookOpen, ArrowLeft, ExternalLink } from "lucide-react";
+import { BookOpen, ExternalLink } from "lucide-react";
 
 interface MaterialContentProps {
   materialId: number;
@@ -23,68 +22,55 @@ export function MaterialContent({
   externalUrl,
   courseId,
 }: MaterialContentProps) {
-  const searchParams = useSearchParams();
-  const { session, refresh } = useActiveSession();
-  const startStudying = searchParams.get("studying") === "true";
-  const [isStudying, setIsStudying] = useState(startStudying || !!session);
-  const [modalOpen, setModalOpen] = useState(false);
+  const { session, startSession, refresh } = useActiveSession();
+  const [isStarting, setIsStarting] = useState(false);
 
-  // No description → show content immediately (backward compat)
-  const hasDescription = !!description;
-  const showContent = !hasDescription || isStudying;
-
-  // For external URL only materials
   const isExternalOnly = !content && !!externalUrl;
 
-  async function handleStudyClick() {
+  async function handleStartSession() {
     if (isExternalOnly) {
       window.open(externalUrl!, "_blank");
       return;
     }
-    if (session) {
-      await startActivityAndNavigate(session.id, "reading", { materialId }, refresh);
-      setIsStudying(true);
-    } else {
-      setModalOpen(true);
+    setIsStarting(true);
+    try {
+      const activeSession = session ?? await startSession(courseId);
+      await startActivityAndNavigate(activeSession.id, "reading", { materialId }, refresh);
+    } finally {
+      setIsStarting(false);
     }
   }
 
   return (
-    <>
-      {/* Description / fallback excerpt */}
-      {hasDescription && !isStudying && (
-        <div className="space-y-4">
-          <p className="text-muted-foreground">{description}</p>
-          <Button onClick={handleStudyClick}>
-            <BookOpen className="mr-2 h-4 w-4" />
-            {isExternalOnly ? "Open Material" : "Study Material"}
-          </Button>
-        </div>
+    <div className="space-y-4">
+      {/* Start session button — only when no active session */}
+      {!session && (
+        <Button onClick={handleStartSession} disabled={isStarting}>
+          <BookOpen className="mr-2 h-4 w-4" />
+          {isStarting ? "Starting..." : isExternalOnly ? "Open Material" : "Start Study Session"}
+        </Button>
+      )}
+
+      {/* Description */}
+      {description && (
+        <p className="text-muted-foreground">{description}</p>
       )}
 
       {/* Content */}
-      {showContent && content && (
-        <div className="space-y-4">
-          {hasDescription && (
-            <Button variant="ghost" size="sm" onClick={() => setIsStudying(false)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Overview
-            </Button>
-          )}
-          <div className="prose prose-neutral dark:prose-invert max-w-none">
-            <RichContent content={content} />
-          </div>
+      {content && (
+        <div className="prose prose-neutral dark:prose-invert max-w-none">
+          <RichContent content={content} />
         </div>
       )}
 
       {/* No content at all */}
-      {showContent && !content && !externalUrl && (
+      {!content && !externalUrl && (
         <p className="text-muted-foreground text-sm">No content available</p>
       )}
 
       {/* External URL when no content */}
-      {showContent && !content && externalUrl && (
-        <div className="space-y-4">
+      {!content && externalUrl && (
+        <div>
           <Button asChild>
             <a href={externalUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-2 h-4 w-4" />
@@ -93,16 +79,6 @@ export function MaterialContent({
           </Button>
         </div>
       )}
-
-      <StudyStartModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        studyUrl={`/materials/${materialId}`}
-        activityType="reading"
-        sourceId={{ materialId }}
-        courseId={courseId}
-        onStudyStart={() => setIsStudying(true)}
-      />
-    </>
+    </div>
   );
 }

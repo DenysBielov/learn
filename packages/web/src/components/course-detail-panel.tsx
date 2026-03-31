@@ -22,6 +22,7 @@ function MaterialStepPanel({ item }: { item: Extract<TreeItem, { type: "step" }>
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    setMaterial(null);
     if (item.stepType !== "material" || !item.materialId) return;
     setLoading(true);
     getMaterialForPanel(item.materialId)

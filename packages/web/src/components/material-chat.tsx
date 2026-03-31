@@ -6,7 +6,10 @@ import { DefaultChatTransport } from "ai";
 import { ChatMessage } from "./chat/chat-message";
 import { ChatInput } from "./chat/chat-input";
 import { getMaterialConversation } from "@/app/actions/chat";
-import { Lightbulb, GraduationCap } from "lucide-react";
+import { createApiToken } from "@/app/actions/settings";
+import { Lightbulb, GraduationCap, Key } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface MaterialChatProps {
   materialId: number;
@@ -17,10 +20,13 @@ export function MaterialChat({ materialId, onNewMessage }: MaterialChatProps) {
   const [chatMode, setChatMode] = useState<"explain" | "educate">("explain");
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [needsApiKey, setNeedsApiKey] = useState(false);
+  const [apiKeyValue, setApiKeyValue] = useState("");
+  const [isSavingKey, setIsSavingKey] = useState(false);
   const lastMsgRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef(0);
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, error } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/material-chat",
     }),
@@ -30,6 +36,25 @@ export function MaterialChat({ materialId, onNewMessage }: MaterialChatProps) {
       }
     },
   });
+
+  // Detect missing API key from chat errors (403 response)
+  useEffect(() => {
+    if (error && (error.message?.includes("API key") || ("statusCode" in error && (error as any).statusCode === 403))) {
+      setNeedsApiKey(true);
+    }
+  }, [error]);
+
+  async function handleSaveApiKey() {
+    if (!apiKeyValue.trim()) return;
+    setIsSavingKey(true);
+    try {
+      await createApiToken("gemini", "Gemini", apiKeyValue.trim());
+      setNeedsApiKey(false);
+      setApiKeyValue("");
+    } finally {
+      setIsSavingKey(false);
+    }
+  }
 
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -89,7 +114,28 @@ export function MaterialChat({ materialId, onNewMessage }: MaterialChatProps) {
     <div className="flex h-full flex-col">
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
-        {messages.length === 0 && (
+        {needsApiKey && (
+          <div className="mx-auto max-w-xs space-y-3 py-8 text-center">
+            <Key className="mx-auto h-6 w-6 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Add your Gemini API key to use the AI chat.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Gemini API key"
+                value={apiKeyValue}
+                onChange={(e) => setApiKeyValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
+                className="text-xs"
+              />
+              <Button size="sm" onClick={handleSaveApiKey} disabled={isSavingKey || !apiKeyValue.trim()}>
+                {isSavingKey ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
+        {messages.length === 0 && !needsApiKey && (
           <p className="py-8 text-center text-xs text-muted-foreground">
             Ask a question about this material
           </p>
@@ -158,7 +204,7 @@ export function MaterialChat({ materialId, onNewMessage }: MaterialChatProps) {
             Educate
           </button>
         </div>
-        <ChatInput onSend={handleSend} disabled={isLoading} />
+        <ChatInput onSend={handleSend} disabled={isLoading || needsApiKey} />
       </div>
     </div>
   );

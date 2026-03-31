@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { StudyStartModal, startActivityAndNavigate } from "@/components/study-start-modal";
+import { startActivityAndNavigate } from "@/components/study-start-modal";
 import { useActiveSession } from "@/components/active-session-provider";
-import { Brain } from "lucide-react";
+import { Brain, BookOpen } from "lucide-react";
 
 interface QuizStartButtonProps {
   quizId: number;
@@ -14,9 +14,8 @@ interface QuizStartButtonProps {
 }
 
 export function QuizStartButton({ quizId, questionCount, courseId }: QuizStartButtonProps) {
-  const [modalOpen, setModalOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const { session, currentActivity, refresh } = useActiveSession();
+  const { session, startSession, currentActivity, refresh } = useActiveSession();
   const router = useRouter();
 
   const isQuizInProgress = !!(currentActivity && currentActivity.type === "quiz_answer" && currentActivity.quizId === quizId);
@@ -37,34 +36,40 @@ export function QuizStartButton({ quizId, questionCount, courseId }: QuizStartBu
     );
   }
 
-  async function handleClick() {
-    if (session) {
-      setIsStarting(true);
-      try {
-        await startActivityAndNavigate(session.id, "quiz_answer", { quizId }, refresh);
-        router.push(`/quizzes/${quizId}/play`);
-      } finally {
-        setIsStarting(false);
-      }
-    } else {
-      setModalOpen(true);
+  async function handleStartWithSession() {
+    setIsStarting(true);
+    try {
+      const activeSession = session ?? await startSession(courseId);
+      await startActivityAndNavigate(activeSession.id, "quiz_answer", { quizId }, refresh);
+      router.push(`/quizzes/${quizId}/play`);
+    } finally {
+      setIsStarting(false);
     }
   }
 
-  return (
-    <>
-      <Button size="lg" className="w-full" onClick={handleClick} disabled={isStarting || isQuizInProgress}>
+  function handleStartWithout() {
+    router.push(`/quizzes/${quizId}/play`);
+  }
+
+  if (session) {
+    return (
+      <Button size="lg" className="w-full" onClick={handleStartWithSession} disabled={isStarting || isQuizInProgress}>
         <Brain className="mr-2 h-5 w-5" />
-        {isStarting || isQuizInProgress ? "Starting..." : "Start Quiz"}
+        {isStarting || isQuizInProgress ? "Starting..." : "Take Quiz"}
       </Button>
-      <StudyStartModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        studyUrl={`/quizzes/${quizId}/play`}
-        activityType="quiz_answer"
-        sourceId={{ quizId }}
-        courseId={courseId}
-      />
-    </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Button size="lg" className="w-full" onClick={handleStartWithSession} disabled={isStarting}>
+        <BookOpen className="mr-2 h-5 w-5" />
+        {isStarting ? "Starting..." : "Start Study Session & Take Quiz"}
+      </Button>
+      <Button size="lg" variant="outline" className="w-full" onClick={handleStartWithout}>
+        <Brain className="mr-2 h-5 w-5" />
+        Take Quiz Without Session
+      </Button>
+    </div>
   );
 }

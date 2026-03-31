@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { getDb, closeDb } from "@flashcards/database";
@@ -59,6 +59,9 @@ function createMcpServer(userId: number) {
   return server;
 }
 
+// Session store: maps sessionId → { transport, server }
+const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>();
+
 const httpServer = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
@@ -83,20 +86,37 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  console.log(`[MCP] ${req.method} session=${req.headers["mcp-session-id"] ?? "none"} content-type=${req.headers["content-type"]}`);
+
+  // Check for existing session
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  if (sessionId && sessions.has(sessionId)) {
+    const session = sessions.get(sessionId)!;
+    await session.transport.handleRequest(req, res);
+    return;
+  }
+
+  // New session (initialize request)
   const mcpServer = createMcpServer(userId);
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableDnsRebindingProtection: true,
-    allowedOrigins: ["https://learn.bielov.dev"],
+    sessionIdGenerator: () => randomUUID(),
+    enableDnsRebindingProtection: process.env.NODE_ENV === "production",
   });
+
+  transport.onclose = () => {
+    const sid = (transport as any).sessionId;
+    if (sid) sessions.delete(sid);
+    mcpServer.close().catch(() => {});
+  };
 
   await mcpServer.connect(transport);
   await transport.handleRequest(req, res);
 
-  res.on("close", () => {
-    transport.close().catch(() => {});
-    mcpServer.close().catch(() => {});
-  });
+  // Store session after initialize (transport now has a sessionId)
+  const newSessionId = (transport as any).sessionId as string | undefined;
+  if (newSessionId) {
+    sessions.set(newSessionId, { transport, server: mcpServer });
+  }
 });
 
 httpServer.listen(PORT, "0.0.0.0", () => {
