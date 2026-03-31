@@ -1,5 +1,7 @@
 import { getQuiz } from "@/app/actions/quizzes";
+import { getEntityFeedbackData } from "@/lib/feedback-data";
 import { PublicHeader } from "@/components/public-header";
+import { EntityFeedback } from "@/components/entity-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { QuizStartButton } from "@/components/quiz-start-button";
@@ -8,6 +10,8 @@ import { notFound } from "next/navigation";
 import { Brain, ChevronLeft, ChevronRight, Clock, Trophy } from "lucide-react";
 import { StepCompleteButton } from "@/components/step-complete-button";
 import { getStepUrl } from "@/lib/route-utils";
+import { getOptionalUser } from "@/lib/auth";
+import { getDb } from "@flashcards/database";
 
 interface QuizPageProps {
   params: Promise<{ id: string }>;
@@ -22,6 +26,8 @@ export default async function QuizPage({ params }: QuizPageProps) {
   if (!quiz) notFound();
 
   const { isPublicView } = quiz;
+  const user = await getOptionalUser();
+  const feedbackData = user ? getEntityFeedbackData(getDb(), user.userId, "quiz", quizId) : undefined;
 
   return (
     <>
@@ -47,6 +53,9 @@ export default async function QuizPage({ params }: QuizPageProps) {
           <div className="flex items-center gap-3">
             <Brain className="h-6 w-6 text-muted-foreground shrink-0" />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{quiz.title}</h1>
+            {!isPublicView && (
+              <EntityFeedback entityType="quiz" entityId={quizId} initialData={feedbackData} />
+            )}
           </div>
           {quiz.description && (
             <p className="text-muted-foreground mt-2 ml-9">{quiz.description}</p>

@@ -1,6 +1,8 @@
 import { getPublicCourse, getCourseBreadcrumbs, getCourseJourney } from "@/app/actions/courses";
+import { getEntityFeedbackData } from "@/lib/feedback-data";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EditCourseDialog } from "@/components/edit-course-dialog";
+import { EntityFeedback } from "@/components/entity-feedback";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
 import { CourseAddMenu } from "@/components/course-add-menu";
 import { CourseSplitLayout } from "@/components/course-split-layout";
@@ -14,6 +16,8 @@ import { VisibilitySelect } from "@/components/visibility-select";
 import { GitBranch, BookOpen, Brain, FolderOpen, UserPlus } from "lucide-react";
 import { ForkCourseButton } from "@/components/fork-course-button";
 import { PublicHeader } from "@/components/public-header";
+import { getOptionalUser } from "@/lib/auth";
+import { getDb } from "@flashcards/database";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -24,6 +28,9 @@ export default async function CoursePage({ params }: CoursePageProps) {
 
   const course = await getPublicCourse(publicId);
   if (!course) notFound();
+
+  const user = await getOptionalUser();
+  const feedbackData = user ? getEntityFeedbackData(getDb(), user.userId, "course", course.id) : undefined;
 
   if (course.isOwner) {
     // Owner view: full edit/study experience
@@ -71,6 +78,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-8 w-2 shrink-0 rounded-full" style={{ backgroundColor: course.color }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{course.name}</h1>
+            <EntityFeedback entityType="course" entityId={course.id} initialData={feedbackData} />
             <ToggleActiveButton courseId={course.id} isActive={course.isActive} variant="header" />
             <EditCourseDialog course={{ id: course.id, name: course.name, description: course.description, color: course.color }} />
             {course.parentId === null && (

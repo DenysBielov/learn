@@ -1,11 +1,15 @@
 import { getDeck } from "@/app/actions/decks";
+import { getEntityFeedbackData } from "@/lib/feedback-data";
 import { getTags } from "@/app/actions/tags";
 import { DeckPageClient } from "@/components/deck-page-client";
+import { EntityFeedback } from "@/components/entity-feedback";
 import { PublicHeader } from "@/components/public-header";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteDeckButton } from "@/components/delete-deck-button";
 import { SessionHistory } from "@/components/session-history";
+import { getOptionalUser } from "@/lib/auth";
+import { getDb } from "@flashcards/database";
 
 interface DeckPageProps {
   params: Promise<{ id: string }>;
@@ -26,6 +30,8 @@ export default async function DeckPage({ params }: DeckPageProps) {
   }
 
   const { isPublicView } = deck;
+  const user = await getOptionalUser();
+  const feedbackData = user ? getEntityFeedbackData(getDb(), user.userId, "deck", deckId) : undefined;
   const allTags = isPublicView ? [] : await getTags();
 
   return (
@@ -46,6 +52,9 @@ export default async function DeckPage({ params }: DeckPageProps) {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{deck.name}</h1>
+            {!isPublicView && (
+              <EntityFeedback entityType="deck" entityId={deckId} initialData={feedbackData} />
+            )}
             {!isPublicView && <DeleteDeckButton deckId={deckId} />}
           </div>
           {deck.description && (

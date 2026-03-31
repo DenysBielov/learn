@@ -17,6 +17,7 @@ import { BookOpen, ChevronLeft } from "lucide-react";
 import { TagBadge } from "@/components/tag-badge";
 import type { Sm2Rating } from "@/lib/sm2";
 import { CompletionNotes } from "@/components/completion-notes";
+import { EntityFeedback } from "@/components/entity-feedback";
 
 interface Flashcard {
   id: number;
@@ -374,6 +375,9 @@ export function FlashcardStudy({
       {currentCard.learningMaterials && currentCard.learningMaterials.length > 0 && (
         <LearningMaterials materials={currentCard.learningMaterials} />
       )}
+
+      {/* Entity feedback */}
+      <EntityFeedback entityType="flashcard" entityId={currentCard.id} key={`feedback-${currentCard.id}`} />
 
       {/* Flag buttons */}
       {!readOnly && isFlipped && (

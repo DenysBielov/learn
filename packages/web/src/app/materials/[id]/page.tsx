@@ -1,6 +1,8 @@
 import { getMaterial } from "@/app/actions/materials";
+import { getEntityFeedbackData } from "@/lib/feedback-data";
 import { MaterialContent } from "@/components/material-content";
 import { MaterialPanel } from "@/components/material-panel";
+import { EntityFeedback } from "@/components/entity-feedback";
 import { PublicHeader } from "@/components/public-header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -8,6 +10,8 @@ import { notFound } from "next/navigation";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { StepCompleteButton } from "@/components/step-complete-button";
 import { getStepUrl } from "@/lib/route-utils";
+import { getOptionalUser } from "@/lib/auth";
+import { getDb } from "@flashcards/database";
 
 interface MaterialPageProps {
   params: Promise<{ id: string }>;
@@ -22,6 +26,8 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
   if (!material) notFound();
 
   const { isPublicView } = material;
+  const user = await getOptionalUser();
+  const feedbackData = user ? getEntityFeedbackData(getDb(), user.userId, "material", materialId) : undefined;
 
   const materialContent = (
     <div className="space-y-6">
@@ -46,6 +52,9 @@ export default async function MaterialPage({ params }: MaterialPageProps) {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           {material.title}
         </h1>
+        {!isPublicView && (
+          <EntityFeedback entityType="material" entityId={materialId} initialData={feedbackData} />
+        )}
       </div>
 
       {/* Completion & Navigation */}

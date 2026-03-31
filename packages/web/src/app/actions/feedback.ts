@@ -2,13 +2,15 @@
 
 import { getDb, writeTransaction } from "@flashcards/database";
 import { entityFeedback, materials, quizzes, quizQuestions, flashcards, decks, courses } from "@flashcards/database/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
+import { getEntityFeedbackData } from "@/lib/feedback-data";
 
-export const ENTITY_TYPES = ["material", "quiz", "question", "flashcard", "deck", "course"] as const;
-const entityTypeSchema = z.enum(ENTITY_TYPES);
-export type EntityType = z.infer<typeof entityTypeSchema>;
+export { type EntityType, type EntityFeedbackData } from "@/lib/feedback-data";
+
+const entityTypeSchema = z.enum(["material", "quiz", "question", "flashcard", "deck", "course"]);
+type EntityType = z.infer<typeof entityTypeSchema>;
 
 const voteSchema = z.union([z.literal(1), z.literal(-1)]);
 
@@ -93,53 +95,11 @@ export async function addFeedbackComment(entityType: string, entityId: number, c
   );
 }
 
-export type EntityFeedbackData = {
-  userVote: 1 | -1 | null;
-  userComment: string | null;
-  positiveCount: number;
-  negativeCount: number;
-};
-
-export async function getEntityFeedback(entityType: string, entityId: number): Promise<EntityFeedbackData> {
+export async function getEntityFeedback(entityType: string, entityId: number) {
   const parsedType = entityTypeSchema.parse(entityType);
 
   const { userId } = await requireAuth();
   const db = getDb();
 
   return getEntityFeedbackData(db, userId, parsedType, entityId);
-}
-
-/** Server-side helper callable from server components directly (no "use server" boundary needed). */
-export function getEntityFeedbackData(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  entityType: EntityType,
-  entityId: number,
-): EntityFeedbackData {
-  const userRow = db.select({ vote: entityFeedback.vote, comment: entityFeedback.comment })
-    .from(entityFeedback)
-    .where(and(
-      eq(entityFeedback.userId, userId),
-      eq(entityFeedback.entityType, entityType),
-      eq(entityFeedback.entityId, entityId),
-    ))
-    .get();
-
-  const counts = db.select({
-    positiveCount: sql<number>`sum(case when ${entityFeedback.vote} = 1 then 1 else 0 end)`,
-    negativeCount: sql<number>`sum(case when ${entityFeedback.vote} = -1 then 1 else 0 end)`,
-  })
-    .from(entityFeedback)
-    .where(and(
-      eq(entityFeedback.entityType, entityType),
-      eq(entityFeedback.entityId, entityId),
-    ))
-    .get();
-
-  return {
-    userVote: (userRow?.vote ?? null) as 1 | -1 | null,
-    userComment: userRow?.comment ?? null,
-    positiveCount: counts?.positiveCount ?? 0,
-    negativeCount: counts?.negativeCount ?? 0,
-  };
 }
