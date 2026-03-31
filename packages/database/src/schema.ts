@@ -463,6 +463,23 @@ export const apiTokens = sqliteTable("api_tokens", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
+// --- Entity Feedback ---
+export const entityFeedback = sqliteTable("entity_feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  entityType: text("entity_type").notNull(), // 'material' | 'quiz' | 'question' | 'flashcard' | 'deck' | 'course'
+  entityId: integer("entity_id").notNull(),
+  vote: integer("vote").notNull(), // 1 or -1
+  comment: text("comment"),
+  isReviewed: integer("is_reviewed", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  uniqueIndex("idx_entity_feedback_unique").on(table.userId, table.entityType, table.entityId),
+  index("idx_entity_feedback_entity").on(table.entityType, table.entityId),
+  index("idx_entity_feedback_reviewed").on(table.entityType, table.isReviewed),
+]);
+
 // --- Relations ---
 export const deckRelations = relations(decks, ({ one, many }) => ({
   user: one(users, { fields: [decks.userId], references: [users.id] }),
@@ -615,6 +632,10 @@ export const learningDependenciesRelations = relations(learningDependencies, ({ 
   materialItem: one(materials, { fields: [learningDependencies.materialItemId], references: [materials.id], relationName: "depMaterialItem" }),
   dependsOnCourse: one(courses, { fields: [learningDependencies.dependsOnCourseId], references: [courses.id], relationName: "depOnCourse" }),
   dependsOnMaterial: one(materials, { fields: [learningDependencies.dependsOnMaterialId], references: [materials.id], relationName: "depOnMaterial" }),
+}));
+
+export const entityFeedbackRelations = relations(entityFeedback, ({ one }) => ({
+  user: one(users, { fields: [entityFeedback.userId], references: [users.id] }),
 }));
 
 export const materialTagsRelations = relations(materialTags, ({ one }) => ({
