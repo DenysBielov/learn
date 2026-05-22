@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { setupQuizFixture } from "./test-helper";
+import { setupQuizFixture, closeCtx } from "./test-helper";
 import { quizResults } from "@flashcards/database/schema";
 import { listQuizResults } from "../quiz-results";
 
 describe("list_quiz_results", () => {
   let ctx: ReturnType<typeof setupQuizFixture> | null = null;
-  afterEach(() => { ctx?.sqlite.close(); ctx = null; });
+  afterEach(() => { closeCtx(ctx); ctx = null; });
 
   it("returns rows filtered by sessionId with joined option text", () => {
     ctx = setupQuizFixture();

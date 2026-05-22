@@ -1,12 +1,12 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { setupQuizFixture } from "./test-helper";
+import { setupQuizFixture, closeCtx } from "./test-helper";
 import { quizResults } from "@flashcards/database/schema";
 import { eq } from "drizzle-orm";
 import { updateQuizAnswer } from "../quiz-results";
 
 describe("update_quiz_answer", () => {
   let ctx: ReturnType<typeof setupQuizFixture> | null = null;
-  afterEach(() => { ctx?.sqlite.close(); ctx = null; });
+  afterEach(() => { closeCtx(ctx); ctx = null; });
 
   it("updates note and confidence; leaves immutable fields alone", () => {
     ctx = setupQuizFixture();

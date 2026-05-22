@@ -45,6 +45,12 @@ export interface TestCtx {
   optionBWrongId: number;
 }
 
+export function closeCtx(ctx: { sqlite: Database.Database } | null) {
+  if (!ctx) return;
+  setSqliteForTesting(null);
+  ctx.sqlite.close();
+}
+
 export function setupQuizFixture(): TestCtx {
   const { db, sqlite } = createTestDb();
 
