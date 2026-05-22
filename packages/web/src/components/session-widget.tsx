@@ -61,7 +61,7 @@ function useDraggable(initialPos: { x: number; y: number }) {
 }
 
 function formatElapsed(ms: number) {
-  const totalSeconds = Math.floor(ms / 1000);
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -148,8 +148,31 @@ export function SessionWidget() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [clockOffsetMs, setClockOffsetMs] = useState(0);
   const [feedData, setFeedData] = useState<{ activities: FeedActivity[]; journey: JourneyStep[] | null } | null>(null);
   const [isEnding, setIsEnding] = useState(false);
+
+  // Measure server-client clock offset once on mount.
+  // offset = serverNow - clientNow, adjusted for round-trip latency (assumes
+  // symmetric send/receive, so server time at receipt ≈ serverNow + rtt/2).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const t0 = Date.now();
+        const res = await fetch("/api/time", { cache: "no-store" });
+        const t1 = Date.now();
+        const { now: serverNow } = await res.json();
+        if (cancelled) return;
+        const rtt = t1 - t0;
+        const serverAtReceive = serverNow + rtt / 2;
+        setClockOffsetMs(serverAtReceive - t1);
+      } catch {
+        // Network failure — leave offset at 0 (timer falls back to local clock).
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Default position: above the feedback button (bottom-6 = 24px, button ~44px, gap 8px)
   const [defaultPos] = useState(() => {
@@ -158,16 +181,16 @@ export function SessionWidget() {
   });
   const { position, isDragging, elementRef, handlePointerDown, handlePointerMove, handlePointerUp, reclamp } = useDraggable(defaultPos);
 
-  // Timer
+  // Timer — uses server-clock offset so elapsed stays accurate even when the
+  // client clock is skewed relative to the server.
   useEffect(() => {
     if (!session) return;
     const startTime = new Date(session.startedAt).getTime();
-    setElapsed(Date.now() - startTime);
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - startTime);
-    }, 1000);
+    const tick = () => setElapsed(Math.max(0, Date.now() + clockOffsetMs - startTime));
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [session]);
+  }, [session, clockOffsetMs]);
 
   // Fetch feed data when panel opens or activity changes while open
   const fetchFeed = useCallback(async () => {
