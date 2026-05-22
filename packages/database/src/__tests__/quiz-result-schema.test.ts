@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type Database from "better-sqlite3";
 import { createTestDb } from "./test-helper";
-import { users, quizzes, quizQuestions, questionOptions, studySessions, sessionActivities, quizResults } from "../schema";
-import { sql } from "drizzle-orm";
+import { users, quizzes, quizQuestions, questionOptions, studySessions, quizResults } from "../schema";
 import type { AppDatabase } from "../index";
 
 let db: AppDatabase;
@@ -67,15 +68,11 @@ describe("quiz_result schema", () => {
       "INSERT INTO quiz_result (question_id, activity_id, correct, user_answer, answered_at) VALUES (?,?,?,?,?)"
     ).run(1, 1, 1, "x", 9_999_999_999); // marker
 
-    sqlite.exec(`
-      UPDATE quiz_result
-      SET answered_at = COALESCE(
-        (SELECT sa.completed_at FROM session_activity sa WHERE sa.id = quiz_result.activity_id),
-        (SELECT sa.started_at FROM session_activity sa WHERE sa.id = quiz_result.activity_id),
-        answered_at
-      )
-      WHERE activity_id IS NOT NULL;
-    `);
+    const migrationSql = readFileSync(
+      path.resolve(import.meta.dirname, "../migrations/0033_quiz_result_backfill.sql"),
+      "utf8"
+    );
+    sqlite.exec(migrationSql);
 
     const row = sqlite.prepare("SELECT answered_at FROM quiz_result").get() as any;
     expect(row.answered_at).toBe(completedAt);
