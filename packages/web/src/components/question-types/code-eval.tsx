@@ -16,7 +16,7 @@ interface Question {
 
 interface CodeEvalProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -62,7 +62,7 @@ export function CodeEval({ question, onAnswer, disabled }: CodeEvalProps) {
     const normalizedAnswer = answer.trim().toLowerCase();
     const acceptedAnswers = data.accepted.map((a) => a.trim().toLowerCase());
     const isCorrect = acceptedAnswers.includes(normalizedAnswer);
-    onAnswer(isCorrect, answer.trim());
+    onAnswer(isCorrect, answer.trim(), null);
   };
 
   const handleAiSubmit = async () => {
@@ -87,11 +87,11 @@ export function CodeEval({ question, onAnswer, disabled }: CodeEvalProps) {
 
       const result = await res.json();
       setFeedback(result.feedback);
-      onAnswer(result.correct, answer.trim());
+      onAnswer(result.correct, answer.trim(), null);
     } catch (error) {
       console.error("Evaluation error:", error);
       setFeedback("Could not evaluate your answer. Please review manually.");
-      onAnswer(false, answer.trim());
+      onAnswer(false, answer.trim(), null);
     } finally {
       setEvaluating(false);
     }

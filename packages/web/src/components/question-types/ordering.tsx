@@ -15,7 +15,7 @@ interface Question {
 
 interface OrderingProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -57,7 +57,7 @@ export function Ordering({ question, onAnswer, disabled }: OrderingProps) {
   const handleSubmit = () => {
     const isCorrect =
       JSON.stringify(items) === JSON.stringify(correctOrder);
-    onAnswer(isCorrect, JSON.stringify(items));
+    onAnswer(isCorrect, JSON.stringify(items), null);
   };
 
   return (

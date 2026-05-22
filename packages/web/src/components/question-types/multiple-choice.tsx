@@ -21,7 +21,7 @@ interface Question {
 
 interface MultipleChoiceProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -51,7 +51,7 @@ export function MultipleChoice({
     const option = question.options.find((o) => o.id === selectedOption);
     if (!option) return;
 
-    onAnswer(option.isCorrect, option.optionText);
+    onAnswer(option.isCorrect, option.optionText, option.id);
   };
 
   return (

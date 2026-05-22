@@ -19,6 +19,7 @@ import { OpenEnded } from "@/components/question-types/open-ended";
 import { Cloze } from "@/components/question-types/cloze";
 import { MultiSelect } from "@/components/question-types/multi-select";
 import { CodeEval } from "@/components/question-types/code-eval";
+import { ConfidenceScale } from "@/components/confidence-scale";
 import { toggleFlag } from "@/app/actions/flags";
 import { BookOpen, ChevronLeft } from "lucide-react";
 import { TagBadge } from "@/components/tag-badge";
@@ -74,6 +75,8 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
   const [results, setResults] = useState<(AnswerResult | null)[]>(() => Array(questions.length).fill(null));
   const [skipping, setSkipping] = useState(false);
   const [reviewingPrevious, setReviewingPrevious] = useState(false);
+  const [confidence, setConfidence] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [answerId, setAnswerId] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const navigateToQuestion = useCallback((index: number) => {
@@ -91,6 +94,8 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
       setAnswered(false);
       setResult(null);
       setReviewingPrevious(false);
+      setConfidence(null);
+      setAnswerId(null);
     }
     setStartTime(Date.now());
   }, [results]);
@@ -118,7 +123,7 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [completed, skipping, goBack]);
 
-  const handleAnswer = async (isCorrect: boolean, userAnswer: string) => {
+  const handleAnswer = async (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null = null) => {
     if (answered) return;
 
     const timeSpentMs = Date.now() - startTime;
@@ -135,14 +140,18 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
     });
 
     try {
-      await submitQuizAnswer(
+      const submitResult = await submitQuizAnswer(
         session?.id ?? null,
         currentActivity?.id ?? null,
         questions[currentIndex].id,
         isCorrect,
         userAnswer,
-        timeSpentMs
+        timeSpentMs,
+        selectedOptionId,
+        confidence,
+        null,
       );
+      if (submitResult) setAnswerId(submitResult.id);
     } catch (error) {
       console.error("Error submitting answer:", error);
     }
@@ -171,7 +180,7 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
 
     try {
       await Promise.all([
-        submitQuizAnswer(session?.id ?? null, currentActivity?.id ?? null, questions[currentIndex].id, false, "[skipped]", timeSpentMs),
+        submitQuizAnswer(session?.id ?? null, currentActivity?.id ?? null, questions[currentIndex].id, false, "[skipped]", timeSpentMs, null, null, null),
         toggleFlag("requires_more_study", undefined, questions[currentIndex].id),
       ]);
 
@@ -318,6 +327,11 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
             </div>
           ) : (
             <>
+              {!answered && (
+                <div className="my-2">
+                  <ConfidenceScale value={confidence} onChange={setConfidence} />
+                </div>
+              )}
               {currentQuestion.type === "multiple_choice" && (
                 <MultipleChoice
                   key={currentQuestion.id}

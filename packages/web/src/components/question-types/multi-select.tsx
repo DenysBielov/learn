@@ -21,7 +21,7 @@ interface Question {
 
 interface MultiSelectProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -70,7 +70,7 @@ export function MultiSelect({
       .filter((o) => selectedOptions.has(o.id))
       .map((o) => o.optionText);
 
-    onAnswer(isCorrect, JSON.stringify(selectedTexts));
+    onAnswer(isCorrect, JSON.stringify(selectedTexts), null);
   };
 
   return (

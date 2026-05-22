@@ -14,7 +14,7 @@ interface Question {
 
 interface FreeTextProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -39,7 +39,7 @@ export function FreeText({ question, onAnswer, disabled }: FreeTextProps) {
     }
 
     const isCorrect = acceptedAnswers.includes(normalizedAnswer);
-    onAnswer(isCorrect, answer.trim());
+    onAnswer(isCorrect, answer.trim(), null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -14,7 +14,7 @@ interface Question {
 
 interface OpenEndedProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -45,11 +45,11 @@ export function OpenEnded({ question, onAnswer, disabled }: OpenEndedProps) {
 
       const result = await res.json();
       setFeedback(result.feedback);
-      onAnswer(result.correct, answer.trim());
+      onAnswer(result.correct, answer.trim(), null);
     } catch (error) {
       console.error("Evaluation error:", error);
       setFeedback("Could not evaluate your answer. Please review manually.");
-      onAnswer(false, answer.trim());
+      onAnswer(false, answer.trim(), null);
     } finally {
       setEvaluating(false);
     }

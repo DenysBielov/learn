@@ -31,7 +31,7 @@ interface MatchPair {
 
 interface MatchingProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -271,7 +271,7 @@ export function Matching({ question, onAnswer, disabled }: MatchingProps) {
       }
     }
 
-    onAnswer(correct, JSON.stringify(userPairs));
+    onAnswer(correct, JSON.stringify(userPairs), null);
   };
 
   const allMatched = leftItems.every((left) => matches[left]);

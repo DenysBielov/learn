@@ -20,7 +20,7 @@ interface Question {
 
 interface TrueFalseProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -33,7 +33,7 @@ export function TrueFalse({ question, onAnswer, disabled }: TrueFalseProps) {
     setSelectedAnswer(answer);
     const option = question.options.find((o) => o.optionText === answer);
     if (option) {
-      onAnswer(option.isCorrect, answer);
+      onAnswer(option.isCorrect, answer, option.id);
     }
   };
 

@@ -31,7 +31,7 @@ interface Question {
 
 interface ClozeProps {
   question: Question;
-  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string, selectedOptionId: number | null) => void;
   disabled: boolean;
 }
 
@@ -311,7 +311,7 @@ export function Cloze({ question, onAnswer, disabled }: ClozeProps) {
     const userAnswer = blanks
       .map((b) => `c${b.group}: ${(userInputs[b.index] ?? "").trim() || "(empty)"}`)
       .join(", ");
-    onAnswer(allCorrect, userAnswer);
+    onAnswer(allCorrect, userAnswer, null);
   };
 
   // Key handler: Enter/Tab navigate between inputs, Enter on last checks
