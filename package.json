@@ -4,16 +4,6 @@
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@11.2.2",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "bcrypt",
-      "better-sqlite3",
-      "esbuild",
-      "msw",
-      "sharp",
-      "unrs-resolver"
-    ]
-  },
   "scripts": {
     "dev": "pnpm --filter @flashcards/web dev",
     "build": "pnpm --filter @flashcards/web build",
