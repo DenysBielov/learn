@@ -75,7 +75,7 @@ export async function submitQuizAnswer(
       userAnswer: userAnswer.slice(0, 10000),
       timeSpentMs,
       confidence: confidence ?? null,
-      note: note === null ? null : note.slice(0, 10000),
+      note: note === null || note.length === 0 ? null : note.slice(0, 10000),
     }).returning({ id: quizResults.id }).get()
   );
 
