@@ -2,11 +2,13 @@
 
 import { z } from "zod";
 import { getDb, writeTransaction } from "@flashcards/database";
-import { quizQuestions, quizResults, studySessions, sessionActivities, quizzes } from "@flashcards/database/schema";
+import { quizQuestions, quizResults, studySessions, sessionActivities, quizzes, questionOptions } from "@flashcards/database/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getDescendantQuizIds } from "@flashcards/database/courses";
 import { requireAuth, getAuthUser } from "@/lib/auth";
 import { isPublicQuiz } from "@flashcards/database/access";
+
+const confidenceSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).nullable().optional();
 
 export async function submitQuizAnswer(
   sessionId: number | null,
@@ -14,10 +16,16 @@ export async function submitQuizAnswer(
   questionId: number,
   correct: boolean,
   userAnswer: string,
-  timeSpentMs: number
-) {
+  timeSpentMs: number,
+  selectedOptionId: number | null = null,
+  confidence: 1 | 2 | 3 | 4 | 5 | null = null,
+  note: string | null = null,
+): Promise<{ id: number } | undefined> {
   if (sessionId !== null) z.number().int().positive().parse(sessionId);
   if (activityId !== null) z.number().int().positive().parse(activityId);
+  if (selectedOptionId !== null) z.number().int().positive().parse(selectedOptionId);
+  confidenceSchema.parse(confidence);
+
   const user = await getAuthUser();
   if (!user) return; // Public view — don't save progress
   const userId = user.userId;
@@ -27,6 +35,13 @@ export async function submitQuizAnswer(
     .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
     .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId))).get();
   if (!question) throw new Error("Question not found");
+
+  if (selectedOptionId !== null) {
+    const opt = db.select({ id: questionOptions.id }).from(questionOptions)
+      .where(and(eq(questionOptions.id, selectedOptionId), eq(questionOptions.questionId, questionId)))
+      .get();
+    if (!opt) throw new Error("Selected option does not belong to the question");
+  }
 
   if (sessionId !== null) {
     const session = db.select({ id: studySessions.id, discardedAt: studySessions.discardedAt }).from(studySessions)
@@ -50,16 +65,21 @@ export async function submitQuizAnswer(
     }
   }
 
-  writeTransaction(db, () =>
+  const inserted = writeTransaction(db, () =>
     db.insert(quizResults).values({
       sessionId: sessionId ?? null,
       activityId: activityId ?? null,
       questionId,
+      selectedOptionId,
       correct,
       userAnswer: userAnswer.slice(0, 10000),
       timeSpentMs,
-    }).run()
+      confidence: confidence ?? null,
+      note: note === null ? null : note.slice(0, 10000),
+    }).returning({ id: quizResults.id }).get()
   );
+
+  return { id: inserted.id };
 }
 
 export async function getQuizQuestionsForQuiz(quizId: number) {
