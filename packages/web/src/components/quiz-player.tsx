@@ -26,6 +26,7 @@ import { TagBadge } from "@/components/tag-badge";
 import { CompletionNotes } from "@/components/completion-notes";
 import { LearningMaterials } from "@/components/learning-materials";
 import { EntityFeedback } from "@/components/entity-feedback";
+import { AnswerNote } from "@/components/answer-note";
 
 interface QuestionOption {
   id: number;
@@ -437,6 +438,7 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
                   <RichContent content={currentQuestion.explanation} />
                 </div>
               )}
+              {answered && <AnswerNote answerId={answerId} />}
             </div>
           )}
 
