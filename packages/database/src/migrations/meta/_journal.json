@@ -225,6 +225,13 @@
       "when": 1774954827092,
       "tag": "0031_daffy_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1779480420582,
+      "tag": "0032_colorful_wasp",
+      "breakpoints": true
     }
   ]
 }

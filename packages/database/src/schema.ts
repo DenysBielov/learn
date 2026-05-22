@@ -252,13 +252,19 @@ export const quizResults = sqliteTable("quiz_result", {
   sessionId: integer("session_id").references(() => studySessions.id, { onDelete: "cascade" }),
   activityId: integer("activity_id").references(() => sessionActivities.id, { onDelete: "set null" }),
   questionId: integer("question_id").notNull().references(() => quizQuestions.id, { onDelete: "cascade" }),
+  selectedOptionId: integer("selected_option_id").references(() => questionOptions.id, { onDelete: "set null" }),
   correct: integer("correct", { mode: "boolean" }).notNull(),
   userAnswer: text("user_answer").default(""),
   timeSpentMs: integer("time_spent_ms").default(0),
+  confidence: integer("confidence"),
+  note: text("note"),
+  answeredAt: integer("answered_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_quiz_result_session").on(table.sessionId),
   index("idx_quiz_result_activity").on(table.activityId),
   index("idx_quiz_result_question_correct").on(table.questionId, table.correct),
+  index("idx_quiz_result_answered_at").on(table.answeredAt),
+  check("chk_quiz_result_confidence", sql`confidence IS NULL OR (confidence BETWEEN 1 AND 5)`),
 ]);
 
 // --- CardFlag ---
