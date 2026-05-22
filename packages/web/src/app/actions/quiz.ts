@@ -257,3 +257,38 @@ export async function updateQuizAnswer(
     db.update(quizResults).set(updates).where(eq(quizResults.id, answerId)).run()
   );
 }
+
+export async function getActivityResults(activityId: number) {
+  z.number().int().positive().parse(activityId);
+  const { userId } = await requireAuth();
+  const db = getDb();
+  const rows = db.all<{
+    id: number; question_id: number; selected_option_id: number | null;
+    correct: number; user_answer: string; confidence: number | null;
+    note: string | null; question_text: string;
+    selected_option_text: string | null; correct_option_text: string | null;
+  }>(sql`
+    SELECT qr.id, qr.question_id, qr.selected_option_id, qr.correct, qr.user_answer,
+           qr.confidence, qr.note, qq.question AS question_text,
+           (SELECT option_text FROM question_option WHERE id = qr.selected_option_id) AS selected_option_text,
+           (SELECT option_text FROM question_option WHERE question_id = qq.id AND is_correct = 1 LIMIT 1) AS correct_option_text
+    FROM quiz_result qr
+    INNER JOIN quiz_question qq ON qq.id = qr.question_id
+    INNER JOIN quiz q ON q.id = qq.quiz_id
+    WHERE qr.activity_id = ${activityId} AND q.user_id = ${userId}
+    ORDER BY qr.id ASC
+  `);
+  return rows.map(r => ({
+    id: r.id,
+    questionId: r.question_id,
+    selectedOptionId: r.selected_option_id,
+    correct: !!r.correct,
+    userAnswer: r.user_answer ?? "",
+    confidence: (r.confidence as 1|2|3|4|5|null) ?? null,
+    note: r.note,
+    questionText: r.question_text,
+    selectedOptionText: r.selected_option_text,
+    correctOptionText: r.correct_option_text,
+    skipped: r.user_answer === "[skipped]" || (r.selected_option_id === null && (r.user_answer ?? "") === ""),
+  }));
+}
