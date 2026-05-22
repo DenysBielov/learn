@@ -10,6 +10,7 @@ import { registerFlashcardTools } from "./tools/flashcards.js";
 import { registerQuizTools } from "./tools/quiz.js";
 import { registerQuizResultTools } from "./tools/quiz-results.js";
 import { registerQuizStatsTools } from "./tools/quiz-stats.js";
+import { registerPromoteAnswerTools } from "./tools/promote-answer.js";
 import { registerTagTools } from "./tools/tags.js";
 import { registerSearchTools } from "./tools/search.js";
 import { registerCourseTools } from "./tools/courses.js";
@@ -46,6 +47,7 @@ function createMcpServer(userId: number) {
   registerQuizTools(server, db, userId);
   registerQuizResultTools(server, db, userId);
   registerQuizStatsTools(server, db, userId);
+  registerPromoteAnswerTools(server, db, userId);
   registerTagTools(server, db, userId);
   registerSearchTools(server, db, userId);
   registerCourseTools(server, db, userId);
