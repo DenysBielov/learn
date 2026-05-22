@@ -127,14 +127,46 @@ export function updateQuizAnswer(
   );
 }
 
-function requireQuizIdForAnswer(db: AppDatabase, answerId: number): number {
-  const row = db.get<{ quiz_id: number }>(sql`
-    SELECT qq.quiz_id FROM quiz_result qr
+function fetchAnswerById(db: AppDatabase, userId: number, answerId: number): QuizResultRow | null {
+  const r = db.get<{
+    id: number; session_id: number | null; activity_id: number | null;
+    quiz_id: number; question_id: number; selected_option_id: number | null;
+    user_answer: string; correct: number; confidence: number | null;
+    note: string | null; time_spent_ms: number; answered_at: number;
+    question_text: string; question_type: string;
+    selected_option_text: string | null; correct_option_text: string | null;
+  }>(sql`
+    SELECT
+      qr.id, qr.session_id, qr.activity_id, qq.quiz_id AS quiz_id,
+      qr.question_id, qr.selected_option_id, qr.user_answer, qr.correct,
+      qr.confidence, qr.note, qr.time_spent_ms, qr.answered_at,
+      qq.question AS question_text, qq.type AS question_type,
+      (SELECT option_text FROM question_option WHERE id = qr.selected_option_id) AS selected_option_text,
+      (SELECT option_text FROM question_option WHERE question_id = qq.id AND is_correct = 1 LIMIT 1) AS correct_option_text
+    FROM quiz_result qr
     INNER JOIN quiz_question qq ON qq.id = qr.question_id
-    WHERE qr.id = ${answerId}
+    INNER JOIN quiz q ON q.id = qq.quiz_id
+    WHERE qr.id = ${answerId} AND q.user_id = ${userId}
   `);
-  if (!row) throw new Error("Answer not found");
-  return row.quiz_id;
+  if (!r) return null;
+  return {
+    id: r.id,
+    sessionId: r.session_id,
+    activityId: r.activity_id,
+    quizId: r.quiz_id,
+    questionId: r.question_id,
+    selectedOptionId: r.selected_option_id,
+    userAnswer: r.user_answer ?? "",
+    correct: !!r.correct,
+    confidence: (r.confidence as 1|2|3|4|5|null) ?? null,
+    note: r.note,
+    timeSpentMs: r.time_spent_ms ?? 0,
+    answeredAt: new Date(r.answered_at * 1000).toISOString(),
+    questionText: r.question_text,
+    questionType: r.question_type,
+    selectedOptionText: r.selected_option_text,
+    correctOptionText: r.correct_option_text,
+  };
 }
 
 export function registerQuizResultTools(server: McpServer, db: AppDatabase, userId: number) {
@@ -174,7 +206,7 @@ export function registerQuizResultTools(server: McpServer, db: AppDatabase, user
         if (note !== undefined) patch.note = note;
         if (confidence !== undefined) patch.confidence = confidence;
         updateQuizAnswer(db, userId, answerId, patch);
-        const row = listQuizResults(db, userId, { quizId: requireQuizIdForAnswer(db, answerId) }).find(r => r.id === answerId);
+        const row = fetchAnswerById(db, userId, answerId);
         return { content: [{ type: "text" as const, text: JSON.stringify(row ?? null, null, 2) }] };
       } catch (e) {
         return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };

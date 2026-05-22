@@ -242,11 +242,10 @@ export async function updateQuizAnswer(
   if (!owned) throw new Error("Answer not found");
 
   const updates: Record<string, unknown> = {};
-  if ("note" in patch) {
-    const n = patch.note;
-    updates.note = n === null || n === undefined || n.length === 0 ? null : n.slice(0, 10000);
+  if (patch.note !== undefined) {
+    updates.note = patch.note === null || patch.note.length === 0 ? null : patch.note.slice(0, 10000);
   }
-  if ("confidence" in patch) {
+  if (patch.confidence !== undefined) {
     updates.confidence = patch.confidence ?? null;
   }
   if (Object.keys(updates).length === 0) {
