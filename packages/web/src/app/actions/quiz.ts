@@ -222,3 +222,38 @@ export async function getCourseQuizQuestions(
 
   return [];
 }
+
+export async function updateQuizAnswer(
+  answerId: number,
+  patch: { note?: string | null; confidence?: 1 | 2 | 3 | 4 | 5 | null },
+): Promise<void> {
+  z.number().int().positive().parse(answerId);
+  confidenceSchema.parse(patch.confidence);
+
+  const { userId } = await requireAuth();
+  const db = getDb();
+
+  const owned = db.select({ id: quizResults.id })
+    .from(quizResults)
+    .innerJoin(quizQuestions, eq(quizResults.questionId, quizQuestions.id))
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizResults.id, answerId), eq(quizzes.userId, userId)))
+    .get();
+  if (!owned) throw new Error("Answer not found");
+
+  const updates: Record<string, unknown> = {};
+  if ("note" in patch) {
+    const n = patch.note;
+    updates.note = n === null || n === undefined || n.length === 0 ? null : n.slice(0, 10000);
+  }
+  if ("confidence" in patch) {
+    updates.confidence = patch.confidence ?? null;
+  }
+  if (Object.keys(updates).length === 0) {
+    throw new Error("Nothing to update");
+  }
+
+  writeTransaction(db, () =>
+    db.update(quizResults).set(updates).where(eq(quizResults.id, answerId)).run()
+  );
+}
