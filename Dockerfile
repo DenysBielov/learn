@@ -1,5 +1,5 @@
 FROM node:22-slim AS builder
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.2.2 --activate
 WORKDIR /app
 
 # Install build tools for native addons (better-sqlite3, bcrypt)

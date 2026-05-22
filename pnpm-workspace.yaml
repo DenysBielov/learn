@@ -1,2 +1,10 @@
 packages:
   - "packages/*"
+
+onlyBuiltDependencies:
+  - bcrypt
+  - better-sqlite3
+  - esbuild
+  - msw
+  - sharp
+  - unrs-resolver
