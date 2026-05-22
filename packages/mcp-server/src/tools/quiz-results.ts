@@ -1,7 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import type { AppDatabase } from "@flashcards/database";
+import { quizResults, quizQuestions, quizzes, writeTransaction } from "@flashcards/database";
 
 export interface QuizResultRow {
   id: number;
@@ -92,6 +93,50 @@ export function listQuizResults(db: AppDatabase, userId: number, input: ListInpu
   }));
 }
 
+export interface UpdateAnswerPatch {
+  note?: string | null;
+  confidence?: 1 | 2 | 3 | 4 | 5 | null;
+}
+
+export function updateQuizAnswer(
+  db: AppDatabase,
+  userId: number,
+  answerId: number,
+  patch: UpdateAnswerPatch,
+): void {
+  if (!("note" in patch) && !("confidence" in patch)) {
+    throw new Error("Nothing to update");
+  }
+  const owned = db.select({ id: quizResults.id })
+    .from(quizResults)
+    .innerJoin(quizQuestions, eq(quizResults.questionId, quizQuestions.id))
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizResults.id, answerId), eq(quizzes.userId, userId)))
+    .get();
+  if (!owned) throw new Error("Answer not found");
+
+  const updates: Record<string, unknown> = {};
+  if ("note" in patch) {
+    const n = patch.note;
+    updates.note = n === null || n === undefined || n.length === 0 ? null : n.slice(0, 10000);
+  }
+  if ("confidence" in patch) updates.confidence = patch.confidence ?? null;
+
+  writeTransaction(db, () =>
+    db.update(quizResults).set(updates).where(eq(quizResults.id, answerId)).run()
+  );
+}
+
+function requireQuizIdForAnswer(db: AppDatabase, answerId: number): number {
+  const row = db.get<{ quiz_id: number }>(sql`
+    SELECT qq.quiz_id FROM quiz_result qr
+    INNER JOIN quiz_question qq ON qq.id = qr.question_id
+    WHERE qr.id = ${answerId}
+  `);
+  if (!row) throw new Error("Answer not found");
+  return row.quiz_id;
+}
+
 export function registerQuizResultTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
     "list_quiz_results",
@@ -109,6 +154,28 @@ export function registerQuizResultTools(server: McpServer, db: AppDatabase, user
       try {
         const rows = listQuizResults(db, userId, input);
         return { content: [{ type: "text" as const, text: JSON.stringify(rows, null, 2) }] };
+      } catch (e) {
+        return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "update_quiz_answer",
+    "Update note and/or confidence on a previously answered quiz question. Other fields are immutable.",
+    {
+      answerId: z.number().int().positive(),
+      note: z.string().nullable().optional(),
+      confidence: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).nullable().optional(),
+    },
+    async ({ answerId, note, confidence }) => {
+      try {
+        const patch: UpdateAnswerPatch = {};
+        if (note !== undefined) patch.note = note;
+        if (confidence !== undefined) patch.confidence = confidence;
+        updateQuizAnswer(db, userId, answerId, patch);
+        const row = listQuizResults(db, userId, { quizId: requireQuizIdForAnswer(db, answerId) }).find(r => r.id === answerId);
+        return { content: [{ type: "text" as const, text: JSON.stringify(row ?? null, null, 2) }] };
       } catch (e) {
         return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
       }

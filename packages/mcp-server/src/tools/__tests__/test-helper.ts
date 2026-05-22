@@ -4,6 +4,7 @@ import * as schema from "@flashcards/database/schema";
 import fs from "fs";
 import path from "path";
 import type { AppDatabase } from "@flashcards/database";
+import { setSqliteForTesting } from "@flashcards/database";
 
 const { users, quizzes, quizQuestions, questionOptions, studySessions, decks } = schema;
 
@@ -28,6 +29,8 @@ export function createTestDb(): { db: AppDatabase; sqlite: Database.Database } {
   }
 
   const db = drizzle(sqlite, { schema }) as unknown as AppDatabase;
+  // Register the in-memory connection so writeTransaction() shares it with `db`.
+  setSqliteForTesting(sqlite);
   return { db, sqlite };
 }
 

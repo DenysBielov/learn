@@ -91,6 +91,15 @@ export function closeDb() {
   }
 }
 
+/**
+ * Test-only: register an externally-managed sqlite connection as the singleton
+ * so that writeTransaction() operates on the same connection as the drizzle
+ * instance used in tests. Pass `null` to clear.
+ */
+export function setSqliteForTesting(sqlite: Database.Database | null) {
+  sqliteInstance = sqlite;
+}
+
 // Re-export schema for non-Turbopack consumers (e.g. MCP server)
 export * from "./schema";
 export { DB_PATH };
