@@ -6,23 +6,28 @@ import { updateQuizAnswer } from "@/app/actions/quiz";
 interface Props {
   answerId: number | null;
   priorNote?: string | null;
+  initialNote?: string | null;
+  onSaved?: (note: string | null) => void;
 }
 
-export function AnswerNote({ answerId, priorNote }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const [value, setValue] = useState("");
-  const [saved, setSaved] = useState(false);
+export function AnswerNote({ answerId, priorNote, initialNote, onSaved }: Props) {
+  const [expanded, setExpanded] = useState(Boolean(initialNote));
+  const [value, setValue] = useState(initialNote ?? "");
+  const [saved, setSaved] = useState(Boolean(initialNote));
 
   useEffect(() => {
-    setExpanded(false);
-    setValue("");
-    setSaved(false);
-  }, [answerId]);
+    const hasInitial = Boolean(initialNote);
+    setExpanded(hasInitial);
+    setValue(initialNote ?? "");
+    setSaved(hasInitial);
+  }, [answerId, initialNote]);
 
   const save = async () => {
     if (!answerId) return;
-    await updateQuizAnswer(answerId, { note: value.length === 0 ? null : value });
+    const next = value.length === 0 ? null : value;
+    await updateQuizAnswer(answerId, { note: next });
     setSaved(true);
+    onSaved?.(next);
   };
 
   if (answerId === null) return null;

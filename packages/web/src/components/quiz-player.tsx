@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RichContent } from "@/components/rich-content";
-import { submitQuizAnswer } from "@/app/actions/quiz";
+import { submitQuizAnswer, getActivityResults } from "@/app/actions/quiz";
 import { useActiveSession } from "@/components/active-session-provider";
 import { MultipleChoice } from "@/components/question-types/multiple-choice";
 import { TrueFalse } from "@/components/question-types/true-false";
@@ -75,11 +75,59 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
   const [startTime, setStartTime] = useState(Date.now());
   const [completed, setCompleted] = useState(false);
   const [results, setResults] = useState<(AnswerResult | null)[]>(() => Array(questions.length).fill(null));
+  const [answerIds, setAnswerIds] = useState<(number | null)[]>(() => Array(questions.length).fill(null));
+  const [notes, setNotes] = useState<(string | null)[]>(() => Array(questions.length).fill(null));
   const [skipping, setSkipping] = useState(false);
   const [reviewingPrevious, setReviewingPrevious] = useState(false);
   const [confidence, setConfidence] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [answerId, setAnswerId] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hydratedRef = useRef(false);
+
+  // Resume from server-side activity on mount / refresh
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    if (!currentActivity || currentActivity.type !== "quiz_answer") return;
+    if (quizId !== undefined && currentActivity.quizId !== quizId) return;
+    hydratedRef.current = true;
+    const activityId = currentActivity.id;
+    (async () => {
+      const answers = await getActivityResults(activityId);
+      if (answers.length === 0) return;
+      const byQ = new Map(answers.map(a => [a.questionId, a] as const));
+      const restoredResults: (AnswerResult | null)[] = [];
+      const restoredIds: (number | null)[] = [];
+      const restoredNotes: (string | null)[] = [];
+      for (const q of questions) {
+        const a = byQ.get(q.id);
+        if (!a) {
+          restoredResults.push(null);
+          restoredIds.push(null);
+          restoredNotes.push(null);
+        } else {
+          restoredResults.push({ correct: a.correct, userAnswer: a.userAnswer });
+          restoredIds.push(a.id);
+          restoredNotes.push(a.note);
+        }
+      }
+      setResults(restoredResults);
+      setAnswerIds(restoredIds);
+      setNotes(restoredNotes);
+
+      const firstUnanswered = restoredResults.findIndex(r => r === null);
+      const resumeIndex = firstUnanswered === -1 ? questions.length - 1 : firstUnanswered;
+      setCurrentIndex(resumeIndex);
+
+      const storedAtResume = restoredResults[resumeIndex];
+      if (storedAtResume && storedAtResume.userAnswer !== "[skipped]") {
+        setAnswered(true);
+        setResult(storedAtResume);
+        setReviewingPrevious(true);
+        setAnswerId(restoredIds[resumeIndex]);
+      }
+      setStartTime(Date.now());
+    })();
+  }, [currentActivity, quizId, questions]);
 
   const navigateToQuestion = useCallback((index: number) => {
     setCurrentIndex(index);
@@ -87,10 +135,11 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
 
     const storedResult = results[index];
     if (storedResult && storedResult.userAnswer !== "[skipped]") {
-      // Previously answered — show read-only
+      // Previously answered — show read-only, but allow note editing via restored answerId
       setAnswered(true);
       setResult(storedResult);
       setReviewingPrevious(true);
+      setAnswerId(answerIds[index]);
     } else {
       // New question or previously skipped — allow answering
       setAnswered(false);
@@ -100,7 +149,7 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
       setAnswerId(null);
     }
     setStartTime(Date.now());
-  }, [results]);
+  }, [results, answerIds]);
 
   const goBack = useCallback(() => {
     if (currentIndex > 0 && !skipping) {
@@ -153,7 +202,11 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
         confidence,
         null,
       );
-      if (submitResult) setAnswerId(submitResult.id);
+      if (submitResult) {
+        setAnswerId(submitResult.id);
+        const idx = currentIndex;
+        setAnswerIds(prev => { const u = [...prev]; u[idx] = submitResult.id; return u; });
+      }
     } catch (error) {
       console.error("Error submitting answer:", error);
     }
@@ -445,7 +498,16 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
           )}
 
           {/* Note for next time — separate from correct/incorrect feedback */}
-          {answered && <AnswerNote answerId={answerId} />}
+          {answered && (
+            <AnswerNote
+              answerId={answerId}
+              initialNote={notes[currentIndex]}
+              onSaved={n => {
+                const idx = currentIndex;
+                setNotes(prev => { const u = [...prev]; u[idx] = n; return u; });
+              }}
+            />
+          )}
 
           {/* Learning materials — always visible */}
           {currentQuestion.learningMaterials && currentQuestion.learningMaterials.length > 0 && (
