@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Flag, BookOpen, Send, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Flag, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toggleFlag, addFlagComment, getFlags } from "@/app/actions/flags";
 
@@ -24,6 +24,7 @@ export function FlagButtons({ flashcardId, questionId }: FlagButtonsProps) {
   const [commentFor, setCommentFor] = useState<FlagType | null>(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const reviewFlag = flags.find(f => f.flagType === "requires_review");
   const studyFlag = flags.find(f => f.flagType === "requires_more_study");
@@ -52,6 +53,7 @@ export function FlagButtons({ flashcardId, questionId }: FlagButtonsProps) {
         setFlags(prev => [...prev, { flagType, comment: null }]);
         setCommentFor(flagType);
         setComment("");
+        setSaved(false);
       }
     } finally {
       setSubmitting(false);
@@ -59,15 +61,15 @@ export function FlagButtons({ flashcardId, questionId }: FlagButtonsProps) {
   };
 
   const handleComment = async () => {
-    if (!comment.trim() || !commentFor) return;
+    const trimmed = comment.trim();
+    if (!trimmed || !commentFor) return;
     setSubmitting(true);
     try {
-      await addFlagComment(commentFor, comment.trim(), flashcardId, questionId);
+      await addFlagComment(commentFor, trimmed, flashcardId, questionId);
       setFlags(prev => prev.map(f =>
-        f.flagType === commentFor ? { ...f, comment: comment.trim() } : f
+        f.flagType === commentFor ? { ...f, comment: trimmed } : f
       ));
-      setComment("");
-      setCommentFor(null);
+      setSaved(true);
     } finally {
       setSubmitting(false);
     }
@@ -123,35 +125,24 @@ export function FlagButtons({ flashcardId, questionId }: FlagButtonsProps) {
       )}
 
       {commentFor && (
-        <div className="flex items-center gap-2">
-          <Input
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder={`Add a note for ${commentFor === "requires_review" ? "review" : "more study"}...`}
-            className="text-sm"
+        <div>
+          <Textarea
             autoFocus
+            value={comment}
+            onChange={e => { setComment(e.target.value); setSaved(false); }}
+            onBlur={handleComment}
             onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                 e.preventDefault();
                 handleComment();
               }
             }}
+            placeholder={`Add a note for ${commentFor === "requires_review" ? "review" : "more study"}...`}
+            className="min-h-20"
           />
-          <Button
-            size="icon"
-            variant="ghost"
-            disabled={submitting || !comment.trim()}
-            onClick={handleComment}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => { setCommentFor(null); setComment(""); }}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <p className="text-xs text-muted-foreground mt-1" aria-live="polite">
+            {submitting ? "Saving…" : saved ? "Saved." : "Saves on blur or ⌘/Ctrl+Enter."}
+          </p>
         </div>
       )}
     </div>
