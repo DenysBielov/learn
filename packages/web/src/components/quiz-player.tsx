@@ -441,9 +441,11 @@ export function QuizPlayer({ quizId, deckName, questions, courseId, coursePublic
                   <RichContent content={currentQuestion.explanation} />
                 </div>
               )}
-              {answered && <AnswerNote answerId={answerId} />}
             </div>
           )}
+
+          {/* Note for next time — separate from correct/incorrect feedback */}
+          {answered && <AnswerNote answerId={answerId} />}
 
           {/* Learning materials — always visible */}
           {currentQuestion.learningMaterials && currentQuestion.learningMaterials.length > 0 && (
