@@ -41,7 +41,9 @@ export function QuizStartButton({ quizId, questionCount, courseId }: QuizStartBu
     try {
       const activeSession = session ?? await startSession(courseId);
       await startActivityAndNavigate(activeSession.id, "quiz_answer", { quizId }, refresh);
-      router.push(`/quizzes/${quizId}/play`);
+      // Navigation is handled by the isQuizInProgress effect once refresh()
+      // updates currentActivity. Calling router.push here too caused two
+      // concurrent RSC fetches for /play which Next 16 sometimes hangs on.
     } finally {
       setIsStarting(false);
     }
