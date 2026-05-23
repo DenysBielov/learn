@@ -13,12 +13,11 @@ function status(r: Row): "correct" | "wrong" | "skipped" {
 }
 
 function sortKey(r: Row): number {
-  // wrong first, then lucky-correct (correct + confidence <= 2), then skipped, then the rest
+  // wrong first, then lucky-correct (correct + confidence <= 2), then the rest. Skipped are rendered in their own section.
   const s = status(r);
   if (s === "wrong") return 0;
   if (s === "correct" && (r.confidence ?? 0) > 0 && (r.confidence ?? 0) <= 2) return 1;
-  if (s === "skipped") return 2;
-  return 3;
+  return 2;
 }
 
 export function QuizReview({ activityId }: { activityId: number }) {
@@ -30,41 +29,63 @@ export function QuizReview({ activityId }: { activityId: number }) {
 
   if (!rows) return <p className="text-muted-foreground">Loading review…</p>;
 
-  const sorted = [...rows].sort((a, b) => sortKey(a) - sortKey(b));
+  const answered = rows.filter(r => status(r) !== "skipped").sort((a, b) => sortKey(a) - sortKey(b));
+  const skipped = rows.filter(r => status(r) === "skipped");
+
+  const renderCard = (r: Row) => {
+    const s = status(r);
+    return (
+      <Card key={r.id}>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <CardTitle className="text-base">{r.questionText}</CardTitle>
+          <Badge variant={s === "correct" ? "default" : s === "wrong" ? "destructive" : "secondary"}>
+            {s}
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-1 text-sm">
+            {r.selectedOptionText && (
+              <div><span className="text-muted-foreground">You picked:</span> {r.selectedOptionText}</div>
+            )}
+            {r.correctOptionText && !r.correct && (
+              <div><span className="text-muted-foreground">Correct:</span> {r.correctOptionText}</div>
+            )}
+          </div>
+          <ConfidenceScale
+            value={(r.confidence as 1|2|3|4|5|null) ?? null}
+            onChange={async v => {
+              await updateQuizAnswer(r.id, { confidence: v });
+              setRows(prev => prev?.map(x => x.id === r.id ? { ...x, confidence: v } : x) ?? null);
+            }}
+          />
+          <InlineNote answerId={r.id} initial={r.note ?? ""} />
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
-    <div className="space-y-4">
-      {sorted.map(r => {
-        const s = status(r);
-        return (
-          <Card key={r.id}>
-            <CardHeader className="flex flex-row items-start justify-between gap-2">
-              <CardTitle className="text-base">{r.questionText}</CardTitle>
-              <Badge variant={s === "correct" ? "default" : s === "wrong" ? "destructive" : "secondary"}>
-                {s}
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-1 text-sm">
-                {r.selectedOptionText && (
-                  <div><span className="text-muted-foreground">You picked:</span> {r.selectedOptionText}</div>
-                )}
-                {r.correctOptionText && !r.correct && (
-                  <div><span className="text-muted-foreground">Correct:</span> {r.correctOptionText}</div>
-                )}
-              </div>
-              <ConfidenceScale
-                value={(r.confidence as 1|2|3|4|5|null) ?? null}
-                onChange={async v => {
-                  await updateQuizAnswer(r.id, { confidence: v });
-                  setRows(prev => prev?.map(x => x.id === r.id ? { ...x, confidence: v } : x) ?? null);
-                }}
-              />
-              <InlineNote answerId={r.id} initial={r.note ?? ""} />
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-6">
+      {answered.length > 0 && (
+        <section className="space-y-4">
+          {answered.map(renderCard)}
+        </section>
+      )}
+      {skipped.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Skipped
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {skipped.length} question{skipped.length === 1 ? "" : "s"} you chose to learn first
+            </span>
+          </div>
+          <div className="space-y-4">
+            {skipped.map(renderCard)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
