@@ -111,14 +111,16 @@ export function registerQuizEntityTools(server: McpServer, db: AppDatabase, user
 
   server.tool(
     "add_questions_to_quiz",
-    "Add quiz questions to a standalone quiz. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)).",
+    "Add quiz questions to a standalone quiz. Content supports Markdown (**bold**, *italic*, `code`, lists, tables), LaTeX math ($inline$ and $$block$$ delimiters), and images (upload via upload_image tool first, then embed as ![alt](/api/images/filename)). IMPORTANT: For multiple_choice, multi_select, matching, and ordering questions, options are SHUFFLED at quiz time — never reference options by their authored position (no 'A', 'B', 'C', 'D', 'option 1', 'the second choice', etc.) in the question or explanation. Refer to options by quoting their text or describing them semantically.",
     {
       quizId: z.number().int().positive(),
       sourceMaterialId: z.number().int().positive().optional().describe("Optional ID of the source material these questions were generated from."),
       questions: z.array(z.object({
         type: z.enum(["multiple_choice", "true_false", "free_text", "matching", "ordering", "cloze", "multi_select", "code_eval", "open_ended"]),
         question: z.string().min(1).max(10240),
-        explanation: z.string().max(5120).optional(),
+        explanation: z.string().max(5120).optional().describe(
+          "A good explanation does TWO things: (1) says why the correct answer is right, AND (2) says why each distractor is wrong (or weaker). Don't just confirm the right answer — contrast it against the others so the learner understands the full decision. Options are SHUFFLED at quiz time, so NEVER reference them by authored position ('A', 'B', 'C', 'D', 'the first option'). Quote the option text or describe it semantically instead.\n\nGood example (for a Counter-vs-list question) — covers correct + all distractors, no positional refs:\n\"Counter defaults missing keys to 0 on +=, giving O(1) updates and clean code; the length-26 list is fine for lowercase-only but less general. The set-based option loses multiplicity; sorting-then-counting is O(n log n) per query.\"\n\nBad example — only restates the answer, ignores distractors, uses letters that break after shuffle:\n\"A is best because Counter handles missing keys.\""
+        ),
         options: z.array(z.object({
           optionText: z.string().min(1).max(500),
           isCorrect: z.boolean(),

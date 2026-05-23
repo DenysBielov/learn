@@ -46,11 +46,13 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "update_question",
-    "Update a quiz question's text or explanation. For structural changes (type, options, correctAnswer), use delete_questions + add_questions_to_quiz instead.",
+    "Update a quiz question's text or explanation. For structural changes (type, options, correctAnswer), use delete_questions + add_questions_to_quiz instead. IMPORTANT: options for multiple_choice, multi_select, matching, and ordering are SHUFFLED at quiz time — never reference them by authored position ('A', 'B', 'C', 'D', 'the first option') in question or explanation. Quote the option text or describe it semantically instead.",
     {
       questionId: z.number().int().positive(),
       question: z.string().min(1).max(10240).optional(),
-      explanation: z.string().max(5120).optional(),
+      explanation: z.string().max(5120).optional().describe(
+        "A good explanation does TWO things: (1) says why the correct answer is right, AND (2) says why each distractor is wrong (or weaker). Don't just confirm the right answer — contrast it against the others so the learner understands the full decision. Options are SHUFFLED at quiz time, so NEVER reference them by authored position ('A', 'B', 'C', 'D', 'the first option'). Quote the option text or describe it semantically instead.\n\nGood example (for a Counter-vs-list question) — covers correct + all distractors, no positional refs:\n\"Counter defaults missing keys to 0 on +=, giving O(1) updates and clean code; the length-26 list is fine for lowercase-only but less general. The set-based option loses multiplicity; sorting-then-counting is O(n log n) per query.\"\n\nBad example — only restates the answer, ignores distractors, uses letters that break after shuffle:\n\"A is best because Counter handles missing keys.\""
+      ),
     },
     async ({ questionId, question, explanation }) => {
       const existing = db.select({ id: quizQuestions.id }).from(quizQuestions)
