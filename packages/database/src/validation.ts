@@ -58,6 +58,41 @@ export const questionOptionSchema = z.object({
   isCorrect: z.boolean(),
 });
 
+// --- Quiz Question: in-place option editing (id optional) ---
+export const editQuestionOptionSchema = questionOptionSchema.extend({
+  id: z.number().int().positive().optional(),
+});
+
+/**
+ * Validate a desired FINAL option set against the same per-type rules as
+ * add_questions_to_quiz. Returns an error message, or null if valid.
+ * Only multiple_choice / true_false / multi_select use options; other types
+ * store their answer in correctAnswer and are rejected here.
+ */
+export function validateOptionSet(
+  type: string,
+  options: { isCorrect: boolean }[],
+): string | null {
+  const correct = options.filter((o) => o.isCorrect).length;
+  switch (type) {
+    case "multiple_choice":
+      if (options.length < 2 || options.length > MAX_OPTIONS) return `multiple_choice requires 2-${MAX_OPTIONS} options`;
+      if (correct < 1) return "At least one option must be correct";
+      return null;
+    case "true_false":
+      if (options.length !== 2) return "true_false requires exactly 2 options";
+      if (correct !== 1) return "Exactly one option must be correct";
+      return null;
+    case "multi_select":
+      if (options.length < 2 || options.length > MAX_OPTIONS) return `multi_select requires 2-${MAX_OPTIONS} options`;
+      if (correct < 1) return "At least one option must be correct";
+      if (correct === options.length) return "At least one option must be incorrect";
+      return null;
+    default:
+      return `Question type '${type}' stores its answer in correctAnswer, not options; not editable via this tool`;
+  }
+}
+
 // --- Quiz Question: create schema per type ---
 const baseQuestionSchema = z.object({
   question: z.string().min(1).max(MAX_QUESTION_TEXT),
