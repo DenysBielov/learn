@@ -2,12 +2,118 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import {
-  type AppDatabase, quizQuestions, quizzes,
+  type AppDatabase, quizQuestions, quizzes, questionOptions,
   writeTransaction,
 } from "@flashcards/database";
+import { editQuestionOptionSchema, validateOptionSet } from "@flashcards/database/validation";
 import { sanitizeMarkdownImageUrls } from "@flashcards/shared";
 import { emitEvent } from "@flashcards/database/events";
 import { getFeedbackCounts } from "./entity-feedback.js";
+
+export interface UpdateOptionsResult {
+  questionId: number;
+  type: string;
+  options: { id: number; optionText: string; isCorrect: boolean }[];
+  updated: number;
+  inserted: number;
+  deleted: number;
+}
+
+/**
+ * Replace a question's options in place from a desired FINAL set.
+ * - option with id  -> update that row (id preserved -> quiz_results survive)
+ * - option without id -> insert
+ * - existing option id omitted -> delete (quiz_result.selected_option_id -> NULL)
+ * Throws Error on validation/ownership failure; writes nothing on failure.
+ */
+export function updateQuestionOptions(
+  db: AppDatabase,
+  userId: number,
+  questionId: number,
+  options: { id?: number; optionText: string; isCorrect: boolean }[],
+): UpdateOptionsResult {
+  // 1. Ownership (via quiz.userId) + fetch type
+  const question = db.select({ id: quizQuestions.id, type: quizQuestions.type })
+    .from(quizQuestions)
+    .innerJoin(quizzes, eq(quizQuestions.quizId, quizzes.id))
+    .where(and(eq(quizQuestions.id, questionId), eq(quizzes.userId, userId)))
+    .get();
+  if (!question) throw new Error(`Question ${questionId} not found`);
+
+  // 2. Type-scope + per-type set rules on the desired final set
+  const setError = validateOptionSet(question.type, options);
+  if (setError) throw new Error(setError);
+
+  // 3. Existing options for this question
+  const existing = db.select({ id: questionOptions.id })
+    .from(questionOptions)
+    .where(eq(questionOptions.questionId, questionId))
+    .all();
+  const existingIds = new Set(existing.map((o) => o.id));
+
+  // 4. Id integrity: provided ids must be unique and belong to this question
+  const providedIds = options.map((o) => o.id).filter((id): id is number => id !== undefined);
+  if (new Set(providedIds).size !== providedIds.length) {
+    throw new Error("Duplicate option id in input");
+  }
+  for (const id of providedIds) {
+    if (!existingIds.has(id)) {
+      throw new Error(`Option ${id} does not belong to question ${questionId}`);
+    }
+  }
+
+  // 5. Compute diff
+  const keepIds = new Set(providedIds);
+  const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
+  const toUpdate = options.filter(
+    (o): o is { id: number; optionText: string; isCorrect: boolean } => o.id !== undefined,
+  );
+  const toInsert = options.filter((o) => o.id === undefined);
+
+  // 6. Apply atomically
+  writeTransaction(db, () => {
+    for (const id of toDelete) {
+      db.delete(questionOptions)
+        .where(and(eq(questionOptions.id, id), eq(questionOptions.questionId, questionId)))
+        .run();
+    }
+    for (const o of toUpdate) {
+      db.update(questionOptions)
+        .set({ optionText: sanitizeMarkdownImageUrls(o.optionText), isCorrect: o.isCorrect })
+        .where(and(eq(questionOptions.id, o.id), eq(questionOptions.questionId, questionId)))
+        .run();
+    }
+    if (toInsert.length > 0) {
+      db.insert(questionOptions).values(
+        toInsert.map((o) => ({
+          questionId,
+          optionText: sanitizeMarkdownImageUrls(o.optionText),
+          isCorrect: o.isCorrect,
+        })),
+      ).run();
+    }
+  });
+
+  // 7. Read back the final set (ascending id)
+  const finalRows = db.select({
+    id: questionOptions.id,
+    optionText: questionOptions.optionText,
+    isCorrect: questionOptions.isCorrect,
+  })
+    .from(questionOptions)
+    .where(eq(questionOptions.questionId, questionId))
+    .orderBy(questionOptions.id)
+    .all();
+
+  return {
+    questionId,
+    type: question.type,
+    options: finalRows,
+    updated: toUpdate.length,
+    inserted: toInsert.length,
+    deleted: toDelete.length,
+  };
+}
 
 export function registerQuizTools(server: McpServer, db: AppDatabase, userId: number) {
   server.tool(
@@ -46,7 +152,7 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
   server.tool(
     "update_question",
-    "Update a quiz question's text or explanation. For structural changes (type, options, correctAnswer), use delete_questions + add_questions_to_quiz instead. IMPORTANT: options for multiple_choice, multi_select, matching, and ordering are SHUFFLED at quiz time — never reference them by authored position ('A', 'B', 'C', 'D', 'the first option') in question or explanation. Quote the option text or describe it semantically instead.",
+    "Update a quiz question's text or explanation. To edit options (text, add, remove, correctness) in place WITHOUT losing history, use update_question_options. For other structural changes (type, correctAnswer), use delete_questions + add_questions_to_quiz. IMPORTANT: options for multiple_choice, multi_select, matching, and ordering are SHUFFLED at quiz time — never reference them by authored position ('A', 'B', 'C', 'D', 'the first option') in question or explanation. Quote the option text or describe it semantically instead.",
     {
       questionId: z.number().int().positive(),
       question: z.string().min(1).max(10240).optional(),
@@ -76,6 +182,26 @@ export function registerQuizTools(server: McpServer, db: AppDatabase, userId: nu
 
       emitEvent(db, userId, "quiz_question.updated", { questionId });
       return { content: [{ type: "text" as const, text: JSON.stringify(updated[0], null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "update_question_options",
+    "Replace a multiple_choice / true_false / multi_select question's options IN PLACE, keyed by option id, WITHOUT changing the questionId — so quiz history (quiz_results) is preserved. The `options` array is the desired FINAL set: an option WITH an id updates that row in place (id kept); an option WITHOUT an id is inserted; any existing option whose id you omit is deleted (its quiz_result references become NULL but the result rows survive). Use this instead of delete_questions + add_questions_to_quiz for option edits. Validation matches add_questions_to_quiz — multiple_choice: 2-20 options, >=1 correct; true_false: exactly 2 options, exactly 1 correct; multi_select: 2-20 options, >=1 correct AND >=1 incorrect; optionText <=500 chars. Other question types store answers in correctAnswer and are rejected. optionText supports Markdown/LaTeX. Options are SHUFFLED at quiz time — never reference them by position ('A', 'B', 'the first option').",
+    {
+      questionId: z.number().int().positive(),
+      options: z.array(editQuestionOptionSchema).min(1).describe(
+        "The desired FINAL option set. id present -> update in place (id preserved); id absent -> insert; any existing option id you omit -> delete.",
+      ),
+    },
+    async ({ questionId, options }) => {
+      try {
+        const result = updateQuestionOptions(db, userId, questionId, options);
+        emitEvent(db, userId, "quiz_question.updated", { questionId });
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (e) {
+        return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+      }
     }
   );
 
